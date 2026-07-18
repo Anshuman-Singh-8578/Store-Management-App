@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List
 import joblib
 import pandas as pd
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 import os
 
