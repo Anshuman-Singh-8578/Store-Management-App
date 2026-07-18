@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demand Forecaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --paper: #F6F1E7;
+    --card: #FFFFFF;
+    --ink: #2B2620;
+    --ink-soft: #6B6255;
+    --line: #DDD5C4;
+    --green: #2F5D45;
+    --green-soft: #E4EBE5;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 620px;
+  }
+
+  header {
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 20px;
+  }
+
+  .eyebrow {
+    font-size: 13px;
+    color: var(--green);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 32px;
+    margin: 0 0 8px;
+  }
+
+  .sub {
+    font-size: 15px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 28px;
+  }
+
+  .field {
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+
+  select, input[type="number"], input[type="date"] {
+    width: 100%;
+    padding: 11px 12px;
+    font-size: 15px;
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  select:focus, input:focus {
+    outline: none;
+    border-color: var(--green);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  button {
+    width: 100%;
+    padding: 13px;
+    margin-top: 8px;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+  }
+
+  button:hover { background: #264A38; }
+  button:disabled { background: var(--ink-soft); cursor: default; }
+
+  .result {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    display: none;
+  }
+
+  .result.show { display: block; }
+
+  .result-label {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0 0 4px;
+  }
+
+  .result-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 40px;
+    font-weight: 500;
+    color: var(--green);
+    margin: 0;
+  }
+
+  .result-note {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 8px 0 0;
+  }
+
+  .error {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: #FBEAEA;
+    border: 1px solid #E3B8B8;
+    border-radius: 6px;
+    color: #8A3232;
+    font-size: 14px;
+    display: none;
+  }
+
+  .error.show { display: block; }
+
+  .item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+
+  .item-row:last-child { border-bottom: none; }
+
+  .item-name {
+    font-weight: 500;
+  }
+
+  .item-sales {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--green);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .tab-btn {
+    width: auto;
+    flex: 1;
+    background: var(--paper);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    margin-top: 0;
+    font-size: 13px;
+    padding: 9px;
+  }
+
+  .tab-btn.active {
+    background: var(--green-soft);
+    color: var(--green);
+    border-color: var(--green);
+    font-weight: 500;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .inv-table {
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .inv-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+
+  .inv-row:last-child { border-bottom: none; }
+
+  .inv-stock {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .inv-stock.low { color: #B5502F; font-weight: 500; }
+
+  .bill-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .bill-line button {
+    width: auto;
+    padding: 4px 10px;
+    margin: 0;
+    background: transparent;
+    color: #B5502F;
+    font-size: 12px;
+  }
+
+  .bill-line button:hover { background: #FBEAEA; }
+
+  .success-msg {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: var(--green-soft);
+    border: 1px solid var(--green);
+    border-radius: 6px;
+    color: var(--green);
+    font-size: 14px;
+    display: none;
+  }
+
+  .success-msg.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Store 1</p>
+    <h1>Demand forecaster</h1>
+    <p class="sub">Estimate expected sales for an upcoming day, based on recent history.</p>
+  </header>
+
+  <div class="card">
+    <p class="eyebrow" style="margin-bottom: 4px;">Store 1 &middot; Last 30 days</p>
+    <h2 style="font-family: 'Fraunces', serif; font-size: 18px; margin: 0 0 2px;">Daily sales trend</h2>
+    <p class="sub" style="margin: 0 0 16px;">Total units sold per day, across all items.</p>
+    <canvas id="trendChart" height="90"></canvas>
+  </div>
+
+  <div class="card" style="margin-top: 20px;">
+    <div class="row">
+      <div class="field">
+        <label for="dayOfWeek">Day of week</label>
+        <select id="dayOfWeek">
+          <option value="1">Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="promo">Promo running?</label>
+        <select id="promo">
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="salesLag1">Sales yesterday</label>
+        <input type="number" id="salesLag1" value="4800" min="0">
+      </div>
+      <div class="field">
+        <label for="salesLag7">Sales, same day last week</label>
+        <input type="number" id="salesLag7" value="5100" min="0">
+      </div>
+    </div>
+
+    <button id="predictBtn">Predict sales</button>
+
+    <div class="error" id="errorBox"></div>
+
+    <div class="result" id="resultBox">
+      <p class="result-label">Predicted sales</p>
+      <p class="result-value" id="resultValue">0</p>
+      <p class="result-note">Based on day of week, promo status, and recent sales history.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 20px;">
+    <p class="eyebrow" style="margin-bottom: 12px;">Top-selling items</p>
+
+    <div class="row">
+      <div class="field">
+        <label for="startDate">From</label>
+        <input type="date" id="startDate" value="2017-12-17">
+      </div>
+      <div class="field">
+        <label for="endDate">To</label>
+        <input type="date" id="endDate" value="2017-12-31">
+      </div>
+    </div>
+
+    <button id="loadItemsBtn">Show top items</button>
+
+    <div id="topItemsList" style="margin-top: 16px;"></div>
+  </div>
+
+  <div class="card" style="margin-top: 20px;">
+    <p class="eyebrow" style="margin-bottom: 12px;">Inventory</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="view">Current stock</button>
+      <button class="tab-btn" data-tab="stockup">Stock up</button>
+      <button class="tab-btn" data-tab="bill">New bill</button>
+    </div>
+
+    <!-- Current stock -->
+    <div class="tab-panel active" id="panel-view">
+      <div class="inv-table" id="inventoryTable">
+        <div class="inv-row"><span>Loading...</span></div>
+      </div>
+    </div>
+
+    <!-- Stock up -->
+    <div class="tab-panel" id="panel-stockup">
+      <div class="row">
+        <div class="field">
+          <label for="stockItemId">Item ID (1-50)</label>
+          <input type="number" id="stockItemId" min="1" max="50" value="1">
+        </div>
+        <div class="field">
+          <label for="stockQty">Quantity received</label>
+          <input type="number" id="stockQty" min="1" value="10">
+        </div>
+      </div>
+      <button id="stockUpBtn">Add to stock</button>
+      <div class="success-msg" id="stockSuccessMsg"></div>
+      <div class="error" id="stockErrorMsg"></div>
+    </div>
+
+    <!-- New bill -->
+    <div class="tab-panel" id="panel-bill">
+      <div class="row">
+        <div class="field">
+          <label for="billItemId">Item ID (1-50)</label>
+          <input type="number" id="billItemId" min="1" max="50" value="1">
+        </div>
+        <div class="field">
+          <label for="billQty">Quantity sold</label>
+          <input type="number" id="billQty" min="1" value="1">
+        </div>
+      </div>
+      <button id="addLineBtn" style="background: var(--ink-soft);">Add item to bill</button>
+
+      <div id="billLines" style="margin-top: 16px;"></div>
+
+      <button id="submitBillBtn" style="margin-top: 16px;">Submit bill</button>
+      <div class="success-msg" id="billSuccessMsg"></div>
+      <div class="error" id="billErrorMsg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_URL = "http://127.0.0.1:8000/predict";
+
+  const btn = document.getElementById("predictBtn");
+  const resultBox = document.getElementById("resultBox");
+  const resultValue = document.getElementById("resultValue");
+  const errorBox = document.getElementById("errorBox");
+
+  btn.addEventListener("click", async () => {
+    errorBox.classList.remove("show");
+    resultBox.classList.remove("show");
+    btn.disabled = true;
+    btn.textContent = "Predicting...";
+
+    const payload = {
+      day_of_week: parseInt(document.getElementById("dayOfWeek").value),
+      promo: parseInt(document.getElementById("promo").value),
+      sales_lag_1: parseFloat(document.getElementById("salesLag1").value),
+      sales_lag_7: parseFloat(document.getElementById("salesLag7").value)
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error("Server returned an error. Check your backend is running.");
+      }
+
+      const data = await response.json();
+      resultValue.textContent = Math.round(data.predicted_sales).toLocaleString();
+      resultBox.classList.add("show");
+    } catch (err) {
+      errorBox.textContent = "Couldn't reach the prediction server. Make sure backend.py is running.";
+      errorBox.classList.add("show");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Predict sales";
+    }
+  });
+
+  async function loadTopItems() {
+    const listEl = document.getElementById("topItemsList");
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+
+    if (!startDate || !endDate) {
+      listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 14px;">Pick both dates.</p>';
+      return;
+    }
+
+    const lookbackDays = Math.round((new Date(endDate) - new Date(startDate)) / 86400000);
+
+    listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 14px;">Loading...</p>';
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/top-items?store_id=1&as_of_date=${endDate}&lookback_days=${lookbackDays}&top_n=5`
+      );
+      const data = await response.json();
+
+      listEl.innerHTML = data.map(row => `
+        <div class="item-row">
+          <span class="item-name">Item #${row.item}</span>
+          <span class="item-sales">${Math.round(row.total_sales).toLocaleString()} units</span>
+        </div>
+      `).join("");
+    } catch (err) {
+      listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 14px;">Could not load top items.</p>';
+    }
+  }
+
+  document.getElementById("loadItemsBtn").addEventListener("click", loadTopItems);
+  loadTopItems();
+
+  // --- Tabs ---
+  const tabBtns = document.querySelectorAll(".tab-btn");
+  tabBtns.forEach(tabBtn => {
+    tabBtn.addEventListener("click", () => {
+      tabBtns.forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      tabBtn.classList.add("active");
+      document.getElementById(`panel-${tabBtn.dataset.tab}`).classList.add("active");
+    });
+  });
+
+  // --- Load current inventory ---
+  async function loadInventory() {
+    const tableEl = document.getElementById("inventoryTable");
+    try {
+      const response = await fetch("http://127.0.0.1:8000/inventory");
+      const data = await response.json();
+
+      tableEl.innerHTML = data.map(row => `
+        <div class="inv-row">
+          <span>${row.item_name}</span>
+          <span class="inv-stock ${row.current_stock < 15 ? 'low' : ''}">${row.current_stock} in stock</span>
+        </div>
+      `).join("");
+    } catch (err) {
+      tableEl.innerHTML = '<div class="inv-row"><span>Could not load inventory.</span></div>';
+    }
+  }
+  loadInventory();
+
+  // --- Stock up ---
+  document.getElementById("stockUpBtn").addEventListener("click", async () => {
+    const successMsg = document.getElementById("stockSuccessMsg");
+    const errorMsg = document.getElementById("stockErrorMsg");
+    successMsg.classList.remove("show");
+    errorMsg.classList.remove("show");
+
+    const payload = {
+      item_id: parseInt(document.getElementById("stockItemId").value),
+      quantity_added: parseInt(document.getElementById("stockQty").value)
+    };
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/stock-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+
+      if (data.error) {
+        errorMsg.textContent = data.error;
+        errorMsg.classList.add("show");
+      } else {
+        successMsg.textContent = `Added ${payload.quantity_added} units to item ${payload.item_id}.`;
+        successMsg.classList.add("show");
+        loadInventory();
+      }
+    } catch (err) {
+      errorMsg.textContent = "Could not reach the server.";
+      errorMsg.classList.add("show");
+    }
+  });
+
+  // --- Billing: build a list of items, then submit as one bill ---
+  let currentBill = [];
+
+  function renderBillLines() {
+    const container = document.getElementById("billLines");
+    if (currentBill.length === 0) {
+      container.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">No items added yet.</p>';
+      return;
+    }
+    container.innerHTML = currentBill.map((line, index) => `
+      <div class="bill-line">
+        <span>Item ${line.item_id} &times; ${line.quantity}</span>
+        <button data-index="${index}" class="remove-line-btn">Remove</button>
+      </div>
+    `).join("");
+
+    document.querySelectorAll(".remove-line-btn").forEach(b => {
+      b.addEventListener("click", () => {
+        currentBill.splice(parseInt(b.dataset.index), 1);
+        renderBillLines();
+      });
+    });
+  }
+  renderBillLines();
+
+  document.getElementById("addLineBtn").addEventListener("click", () => {
+    const itemId = parseInt(document.getElementById("billItemId").value);
+    const qty = parseInt(document.getElementById("billQty").value);
+    if (!itemId || !qty || qty <= 0) return;
+    currentBill.push({ item_id: itemId, quantity: qty });
+    renderBillLines();
+  });
+
+  document.getElementById("submitBillBtn").addEventListener("click", async () => {
+    const successMsg = document.getElementById("billSuccessMsg");
+    const errorMsg = document.getElementById("billErrorMsg");
+    successMsg.classList.remove("show");
+    errorMsg.classList.remove("show");
+
+    if (currentBill.length === 0) {
+      errorMsg.textContent = "Add at least one item to the bill first.";
+      errorMsg.classList.add("show");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/bill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: currentBill })
+      });
+
+      if (!response.ok) {
+        throw new Error("Bill failed — check item IDs and available stock.");
+      }
+
+      const data = await response.json();
+      successMsg.textContent = `Bill #${data.bill_id} recorded successfully.`;
+      successMsg.classList.add("show");
+      currentBill = [];
+      renderBillLines();
+      loadInventory();
+    } catch (err) {
+      errorMsg.textContent = "Bill failed — check item IDs and available stock.";
+      errorMsg.classList.add("show");
+    }
+  });
+
+  // --- Trend chart ---
+  async function loadTrendChart() {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/sales-history?store_id=1&days=30");
+      const data = await response.json();
+
+      const ctx = document.getElementById("trendChart").getContext("2d");
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: data.map(row => row.date.slice(5)), // show MM-DD only
+          datasets: [{
+            data: data.map(row => row.sales),
+            borderColor: "#2F5D45",
+            backgroundColor: "rgba(47, 93, 69, 0.08)",
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => `Date: ${items[0].label}`,
+                label: (item) => `Sales: ${item.formattedValue} units`
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: "#6B6255", maxTicksLimit: 6 }, grid: { display: false } },
+            y: {
+              ticks: { color: "#6B6255" },
+              grid: { color: "#EFE9DC" },
+              title: { display: true, text: "Units sold", color: "#6B6255", font: { size: 12 } }
+            }
+          }
+        }
+      });
+    } catch (err) {
+      console.error("Could not load trend chart:", err);
+    }
+  }
+  loadTrendChart();
+</script>
+
+</body>
+</html>
