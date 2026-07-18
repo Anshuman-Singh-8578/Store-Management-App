@@ -9,10 +9,15 @@ import os
 #database loading
 load_dotenv()
 
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("AIVEN_DB_USER")
+DB_PASSWORD = os.getenv("AIVEN_DB_PASSWORD")
+DB_HOST = os.getenv("AIVEN_DB_HOST")
+DB_PORT = os.getenv("AIVEN_DB_PORT")
+DB_NAME = os.getenv("AIVEN_DB_NAME")
+
+engine = create_engine(
+    f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?use_pure=true"
+)
 
 # --- Load the trained model once, when the server starts ---
 model = joblib.load("model.pkl")
