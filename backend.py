@@ -69,11 +69,12 @@ engine = create_engine(
 @app.get("/top-items")
 def top_items(store_id: int, as_of_date: str, lookback_days: int = 14, top_n: int = 5):
     query = text("""
-        SELECT item, SUM(sales) AS total_sales
-        FROM sales
-        WHERE store = :store_id
-          AND date BETWEEN DATE_SUB(:as_of_date, INTERVAL :lookback_days DAY) AND :as_of_date
-        GROUP BY item
+        SELECT s.item, i.item_name, SUM(s.sales) AS total_sales
+        FROM sales s
+        JOIN inventory i ON s.item = i.item_id
+        WHERE s.store = :store_id
+          AND s.date BETWEEN DATE_SUB(:as_of_date, INTERVAL :lookback_days DAY) AND :as_of_date
+        GROUP BY s.item, i.item_name
         ORDER BY total_sales DESC
         LIMIT :top_n
     """)
@@ -88,7 +89,7 @@ def top_items(store_id: int, as_of_date: str, lookback_days: int = 14, top_n: in
     with engine.connect() as conn:
         result = conn.execute(query, params).fetchall()
 
-    return [{"item": row.item, "total_sales": float(row.total_sales)} for row in result]
+    return [{"item": row.item, "item_name": row.item_name, "total_sales": float(row.total_sales)} for row in result]
     
 class StockUpdateRequest(BaseModel):
     item_id: int
