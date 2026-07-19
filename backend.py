@@ -56,10 +56,10 @@ def predict(request: PredictionRequest):
 
 from sqlalchemy import create_engine, text
 
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("AIVEN_DB_USER")
+DB_PASSWORD = os.getenv("AIVEN_DB_PASSWORD")
+DB_HOST = os.getenv("AIVEN_DB_HOST")
+DB_NAME = os.getenv("AIVEN_DB_NAME")
 
 engine = create_engine(f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}")
 
