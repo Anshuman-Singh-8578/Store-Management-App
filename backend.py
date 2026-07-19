@@ -60,8 +60,11 @@ DB_USER = os.getenv("AIVEN_DB_USER")
 DB_PASSWORD = os.getenv("AIVEN_DB_PASSWORD")
 DB_HOST = os.getenv("AIVEN_DB_HOST")
 DB_NAME = os.getenv("AIVEN_DB_NAME")
+DB_PORT = os.getenv("AIVEN_DB_PORT")
 
-engine = create_engine(f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}")
+engine = create_engine(
+    f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?use_pure=true"
+)
 
 @app.get("/top-items")
 def top_items(store_id: int, as_of_date: str, lookback_days: int = 14, top_n: int = 5):
