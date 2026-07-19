@@ -122,24 +122,23 @@ class BillRequest(BaseModel):
 
 @app.post("/bill")
 def create_bill(request: BillRequest):
-    with engine.begin() as conn:  # begin() starts a transaction automatically
-        # Get a new bill_id by finding the current max and adding 1
+    receipt_items = []
+
+    with engine.begin() as conn:
         result = conn.execute(text("SELECT COALESCE(MAX(bill_id), 0) + 1 AS next_id FROM transactions"))
         bill_id = result.scalar()
 
         for item in request.items:
-            # Check enough stock exists before selling
-            stock_check = conn.execute(
-                text("SELECT current_stock FROM inventory WHERE item_id = :item_id"),
+            row = conn.execute(
+                text("SELECT item_name, price, current_stock FROM inventory WHERE item_id = :item_id"),
                 {"item_id": item.item_id}
-            ).scalar()
+            ).fetchone()
 
-            if stock_check is None:
+            if row is None:
                 raise Exception(f"Item {item.item_id} does not exist")
-            if stock_check < item.quantity:
+            if row.current_stock < item.quantity:
                 raise Exception(f"Not enough stock for item {item.item_id}")
 
-            # Record the sale
             conn.execute(
                 text("""
                     INSERT INTO transactions (bill_id, item_id, quantity)
@@ -148,7 +147,6 @@ def create_bill(request: BillRequest):
                 {"bill_id": bill_id, "item_id": item.item_id, "quantity": item.quantity}
             )
 
-            # Decrease stock
             conn.execute(
                 text("""
                     UPDATE inventory
@@ -158,16 +156,51 @@ def create_bill(request: BillRequest):
                 {"quantity": item.quantity, "item_id": item.item_id}
             )
 
-    return {"bill_id": bill_id, "message": "Bill recorded successfully"}
+            receipt_items.append({
+                "item_id": item.item_id,
+                "item_name": row.item_name,
+                "price": row.price,
+                "quantity": item.quantity,
+                "line_total": row.price * item.quantity
+            })
+
+    grand_total = sum(line["line_total"] for line in receipt_items)
+
+    return {
+        "bill_id": bill_id,
+        "items": receipt_items,
+        "grand_total": grand_total
+    }
 
 @app.get("/inventory")
 def get_inventory():
-    query = text("SELECT item_id, item_name, current_stock FROM inventory ORDER BY item_id")
+    query = text("SELECT item_id, item_name, price, current_stock FROM inventory ORDER BY item_id")
 
     with engine.connect() as conn:
         result = conn.execute(query).fetchall()
 
-    return [{"item_id": row.item_id, "item_name": row.item_name, "current_stock": row.current_stock} for row in result]
+    return [
+        {"item_id": row.item_id, "item_name": row.item_name, "price": row.price, "current_stock": row.current_stock}
+        for row in result
+    ]
+
+@app.get("/inventory/search")
+def search_inventory(q: str):
+    query = text("""
+        SELECT item_id, item_name, price, current_stock
+        FROM inventory
+        WHERE item_name LIKE :search_term
+        ORDER BY item_name
+        LIMIT 10
+    """)
+
+    with engine.connect() as conn:
+        result = conn.execute(query, {"search_term": f"%{q}%"}).fetchall()
+
+    return [
+        {"item_id": row.item_id, "item_name": row.item_name, "price": row.price, "current_stock": row.current_stock}
+        for row in result
+    ]
 
 @app.get("/sales-history")
 def sales_history(store_id: int = 1, days: int = 30):
