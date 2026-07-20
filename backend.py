@@ -148,6 +148,56 @@ class BillItem(BaseModel):
 class BillRequest(BaseModel):
     items: List[BillItem]
 
+@app.get("/reorder-suggestions")
+def reorder_suggestions(days: int = 14):
+    query = text("""
+        SELECT i.item_id, i.item_name, i.current_stock,
+               COALESCE(SUM(t.quantity), 0) AS units_sold_recently
+        FROM inventory i
+        LEFT JOIN transactions t
+          ON i.item_id = t.item_id AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+        GROUP BY i.item_id, i.item_name, i.current_stock
+        ORDER BY units_sold_recently DESC
+    """)
+
+    with engine.connect() as conn:
+        result = conn.execute(query, {"days": days}).fetchall()
+
+    suggestions = []
+    for row in result:
+        daily_rate = row.units_sold_recently / days
+        days_of_stock_left = row.current_stock / daily_rate if daily_rate > 0 else None
+
+        # Flag if stock will run out within a week at the current sales pace
+        should_reorder = daily_rate > 0 and days_of_stock_left is not None and days_of_stock_left < 7
+
+        suggestions.append({
+            "item_id": row.item_id,
+            "item_name": row.item_name,
+            "current_stock": row.current_stock,
+            "units_sold_recently": row.units_sold_recently,
+            "days_of_stock_left": round(days_of_stock_left, 1) if days_of_stock_left is not None else None,
+            "should_reorder": should_reorder
+        })
+
+    return suggestions
+
+@app.get("/item-sales-history")
+def item_sales_history(item_id: int, days: int = 14):
+    query = text("""
+        SELECT DATE(sale_date) AS sale_day, SUM(quantity) AS units_sold
+        FROM transactions
+        WHERE item_id = :item_id
+          AND sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+        GROUP BY DATE(sale_date)
+        ORDER BY sale_day
+    """)
+
+    with engine.connect() as conn:
+        result = conn.execute(query, {"item_id": item_id, "days": days}).fetchall()
+
+    return [{"date": str(row.sale_day), "units_sold": row.units_sold} for row in result]
+
 @app.post("/bill")
 def create_bill(request: BillRequest):
     receipt_items = []
