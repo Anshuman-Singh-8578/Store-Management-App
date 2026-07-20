@@ -7,6 +7,33 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 import os
+from datetime import date
+
+# --- Discount rules ---
+
+# Tiered discount on total bill amount (highest applicable tier wins)
+TIER_DISCOUNTS = [
+    (5000, 20),
+    (1000, 10),
+    (500, 5),
+]
+
+def get_tier_discount_percent(subtotal):
+    for threshold, percent in TIER_DISCOUNTS:
+        if subtotal >= threshold:
+            return percent
+    return 0
+
+# Buy X of one item, get Y of another item free
+BOGO_RULES = [
+    {"trigger_item_id": 1, "trigger_qty": 2, "free_item_id": 25, "free_qty": 1, "label": "Buy 2 Amul Milk, get 1 Cadbury Dairy Milk free"}
+]
+
+# Category/seasonal discounts, active only within a date range
+SEASONAL_DISCOUNTS = [
+    {"name": "Chocolate Day", "keywords": ["chocolate", "dairy milk"], "percent": 15,
+     "start": date(2026, 2, 9), "end": date(2026, 2, 9)}
+]
 
 #database loading
 load_dotenv()
@@ -124,11 +151,13 @@ class BillRequest(BaseModel):
 @app.post("/bill")
 def create_bill(request: BillRequest):
     receipt_items = []
+    today = date.today()
 
     with engine.begin() as conn:
         result = conn.execute(text("SELECT COALESCE(MAX(bill_id), 0) + 1 AS next_id FROM transactions"))
         bill_id = result.scalar()
 
+        # --- Process each requested item ---
         for item in request.items:
             row = conn.execute(
                 text("SELECT item_name, price, current_stock FROM inventory WHERE item_id = :item_id"),
@@ -140,36 +169,77 @@ def create_bill(request: BillRequest):
             if row.current_stock < item.quantity:
                 raise Exception(f"Not enough stock for item {item.item_id}")
 
-            conn.execute(
-                text("""
-                    INSERT INTO transactions (bill_id, item_id, quantity)
-                    VALUES (:bill_id, :item_id, :quantity)
-                """),
-                {"bill_id": bill_id, "item_id": item.item_id, "quantity": item.quantity}
-            )
+            # Check seasonal discount for this item
+            seasonal_percent = 0
+            seasonal_label = None
+            for deal in SEASONAL_DISCOUNTS:
+                if deal["start"] <= today <= deal["end"]:
+                    if any(k in row.item_name.lower() for k in deal["keywords"]):
+                        seasonal_percent = deal["percent"]
+                        seasonal_label = deal["name"]
+                        break
+
+            line_total = row.price * item.quantity
+            seasonal_discount_amount = round(line_total * seasonal_percent / 100)
+            line_total_after_seasonal = line_total - seasonal_discount_amount
 
             conn.execute(
-                text("""
-                    UPDATE inventory
-                    SET current_stock = current_stock - :quantity
-                    WHERE item_id = :item_id
-                """),
+                text("INSERT INTO transactions (bill_id, item_id, quantity) VALUES (:bill_id, :item_id, :quantity)"),
+                {"bill_id": bill_id, "item_id": item.item_id, "quantity": item.quantity}
+            )
+            conn.execute(
+                text("UPDATE inventory SET current_stock = current_stock - :quantity WHERE item_id = :item_id"),
                 {"quantity": item.quantity, "item_id": item.item_id}
             )
 
             receipt_items.append({
-                "item_id": item.item_id,
-                "item_name": row.item_name,
-                "price": row.price,
-                "quantity": item.quantity,
-                "line_total": row.price * item.quantity
+                "item_id": item.item_id, "item_name": row.item_name, "price": row.price,
+                "quantity": item.quantity, "line_total": line_total_after_seasonal,
+                "seasonal_discount": seasonal_discount_amount, "seasonal_label": seasonal_label,
+                "is_free": False
             })
 
-    grand_total = sum(line["line_total"] for line in receipt_items)
+        # --- Check Buy X Get Y free rules ---
+        requested_qty = {item.item_id: item.quantity for item in request.items}
+        for rule in BOGO_RULES:
+            trigger_qty_bought = requested_qty.get(rule["trigger_item_id"], 0)
+            free_units_earned = (trigger_qty_bought // rule["trigger_qty"]) * rule["free_qty"]
+
+            if free_units_earned > 0:
+                free_row = conn.execute(
+                    text("SELECT item_name, price, current_stock FROM inventory WHERE item_id = :item_id"),
+                    {"item_id": rule["free_item_id"]}
+                ).fetchone()
+
+                if free_row and free_row.current_stock >= free_units_earned:
+                    conn.execute(
+                        text("INSERT INTO transactions (bill_id, item_id, quantity) VALUES (:bill_id, :item_id, :quantity)"),
+                        {"bill_id": bill_id, "item_id": rule["free_item_id"], "quantity": free_units_earned}
+                    )
+                    conn.execute(
+                        text("UPDATE inventory SET current_stock = current_stock - :quantity WHERE item_id = :item_id"),
+                        {"quantity": free_units_earned, "item_id": rule["free_item_id"]}
+                    )
+                    receipt_items.append({
+                        "item_id": rule["free_item_id"], "item_name": free_row.item_name, "price": free_row.price,
+                        "quantity": free_units_earned, "line_total": 0,
+                        "seasonal_discount": 0, "seasonal_label": None,
+                        "is_free": True, "free_reason": rule["label"]
+                    })
+
+        # --- Tiered discount on paid subtotal ---
+        paid_subtotal = sum(line["line_total"] for line in receipt_items if not line["is_free"])
+        tier_percent = get_tier_discount_percent(paid_subtotal)
+        tier_discount_amount = round(paid_subtotal * tier_percent / 100)
+
+        grand_total = paid_subtotal - tier_discount_amount
 
     return {
         "bill_id": bill_id,
         "items": receipt_items,
+        "paid_subtotal": paid_subtotal,
+        "tier_discount_percent": tier_percent,
+        "tier_discount_amount": tier_discount_amount,
         "grand_total": grand_total
     }
 

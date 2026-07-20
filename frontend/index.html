@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Demand Forecaster</title>
+<title>Store Manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
@@ -16,6 +16,8 @@
     --line: #DDD5C4;
     --green: #2F5D45;
     --green-soft: #E4EBE5;
+    --red: #B5502F;
+    --red-soft: #FBEAEA;
   }
 
   * { box-sizing: border-box; }
@@ -26,641 +28,749 @@
     color: var(--ink);
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    padding: 48px 20px;
   }
 
-  .wrap {
-    width: 100%;
-    max-width: 620px;
+  .app-shell {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 20px 100px;
   }
 
-  header {
-    margin-bottom: 32px;
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 20px;
-  }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 24px 0 16px; }
+  .brand-name { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; margin: 0; }
+  .brand-sub { font-size: 12px; color: var(--ink-soft); letter-spacing: 0.04em; text-transform: uppercase; margin: 2px 0 0; }
 
-  .eyebrow {
-    font-size: 13px;
-    color: var(--green);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin: 0 0 6px;
+  .nav {
+    display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 4px; margin-bottom: 24px;
   }
+  .nav-btn {
+    flex: 1; background: transparent; border: none; color: var(--ink-soft);
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500;
+    padding: 10px; border-radius: 7px; cursor: pointer;
+  }
+  .nav-btn.active { background: var(--green); color: #fff; }
 
-  h1 {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
-    font-size: 32px;
-    margin: 0 0 8px;
-  }
-
-  .sub {
-    font-size: 15px;
-    color: var(--ink-soft);
-    margin: 0;
-    line-height: 1.5;
-  }
+  .page { display: none; }
+  .page.active { display: block; }
+  .subview { display: none; }
+  .subview.active { display: block; }
 
   .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 28px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 24px; margin-bottom: 16px;
   }
 
-  .field {
-    margin-bottom: 20px;
-  }
+  .eyebrow { font-size: 12px; color: var(--green); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 4px; font-weight: 500; }
+  .card-title { font-family: 'Fraunces', serif; font-size: 18px; margin: 0 0 4px; }
+  .card-sub { font-size: 13px; color: var(--ink-soft); margin: 0 0 16px; }
 
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--ink-soft);
-    margin-bottom: 6px;
+  .field { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--ink-soft); margin-bottom: 6px; }
+  select, input[type="number"], input[type="date"], input[type="text"] {
+    width: 100%; padding: 11px 12px; font-size: 15px; font-family: 'JetBrains Mono', monospace;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink);
   }
-
-  select, input[type="number"], input[type="date"] {
-    width: 100%;
-    padding: 11px 12px;
-    font-size: 15px;
-    font-family: 'JetBrains Mono', monospace;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--paper);
-    color: var(--ink);
-  }
-
-  select:focus, input:focus {
-    outline: none;
-    border-color: var(--green);
-  }
-
-  .row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
+  select:focus, input:focus { outline: none; border-color: var(--green); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
   button {
-    width: 100%;
-    padding: 13px;
-    margin-top: 8px;
-    background: var(--green);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 15px;
-    font-weight: 500;
-    font-family: 'Inter', sans-serif;
-    cursor: pointer;
+    padding: 12px; background: var(--green); color: #fff; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 500; font-family: 'Inter', sans-serif; cursor: pointer; width: 100%;
   }
-
   button:hover { background: #264A38; }
-  button:disabled { background: var(--ink-soft); cursor: default; }
+  button.secondary { background: var(--ink-soft); }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 
-  .result {
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid var(--line);
-    display: none;
-  }
+  .result-value { font-family: 'JetBrains Mono', monospace; font-size: 36px; font-weight: 500; color: var(--green); margin: 0; }
 
-  .result.show { display: block; }
+  .error, .success-msg { margin-top: 14px; padding: 11px 14px; border-radius: 6px; font-size: 13px; display: none; }
+  .error { background: var(--red-soft); border: 1px solid #E3B8B8; color: var(--red); }
+  .success-msg { background: var(--green-soft); border: 1px solid var(--green); color: var(--green); }
+  .error.show, .success-msg.show { display: block; }
 
-  .result-label {
-    font-size: 13px;
-    color: var(--ink-soft);
-    margin: 0 0 4px;
-  }
+  .list-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .list-row:last-child { border-bottom: none; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .inv-stock.low { color: var(--red); font-weight: 500; }
 
-  .result-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 40px;
-    font-weight: 500;
-    color: var(--green);
-    margin: 0;
-  }
-
-  .result-note {
-    font-size: 13px;
-    color: var(--ink-soft);
-    margin: 8px 0 0;
-  }
-
-  .error {
-    margin-top: 16px;
-    padding: 12px 14px;
-    background: #FBEAEA;
-    border: 1px solid #E3B8B8;
-    border-radius: 6px;
-    color: #8A3232;
-    font-size: 14px;
-    display: none;
-  }
-
-  .error.show { display: block; }
-
-  .item-row {
+  /* --- Category tabs --- */
+  .category-tabs {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--line);
-    font-size: 14px;
-  }
-
-  .item-row:last-child { border-bottom: none; }
-
-  .item-name {
-    font-weight: 500;
-  }
-
-  .item-sales {
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--green);
-  }
-
-  .tabs {
-    display: flex;
-    gap: 6px;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
     margin-bottom: 16px;
   }
 
-  .tab-btn {
+  .category-tab {
     width: auto;
-    flex: 1;
-    background: var(--paper);
+    flex-shrink: 0;
+    background: var(--card);
     color: var(--ink-soft);
     border: 1px solid var(--line);
-    margin-top: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 20px;
+  }
+
+  .category-tab.active { background: var(--green); color: #fff; border-color: var(--green); }
+
+  /* --- Product grid --- */
+  .grid-search { margin-bottom: 16px; }
+
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .product-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .product-icon {
+    width: 100%;
+    aspect-ratio: 1.4;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .product-icon svg { width: 30px; height: 30px; }
+
+  .product-name {
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.3;
+    min-height: 32px;
+  }
+
+  .product-price {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--green);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--paper);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .stepper button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: var(--card);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-size: 16px;
+    line-height: 1;
+    border-radius: 6px;
+  }
+
+  .stepper-qty {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    flex: 1;
+    text-align: center;
+  }
+
+  .add-btn {
     font-size: 13px;
     padding: 9px;
   }
 
-  .tab-btn.active {
-    background: var(--green-soft);
-    color: var(--green);
-    border-color: var(--green);
-    font-weight: 500;
-  }
-
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
-
-  .inv-table {
-    max-height: 280px;
-    overflow-y: auto;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-  }
-
-  .inv-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 9px 14px;
-    border-bottom: 1px solid var(--line);
-    font-size: 13px;
-  }
-
-  .inv-row:last-child { border-bottom: none; }
-
-  .inv-stock {
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .inv-stock.low { color: #B5502F; font-weight: 500; }
-
-  .bill-line {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    font-size: 14px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .bill-line button {
-    width: auto;
-    padding: 4px 10px;
-    margin: 0;
-    background: transparent;
-    color: #B5502F;
-    font-size: 12px;
-  }
-
-  .bill-line button:hover { background: #FBEAEA; }
-
-  .success-msg {
-    margin-top: 16px;
-    padding: 12px 14px;
-    background: var(--green-soft);
-    border: 1px solid var(--green);
-    border-radius: 6px;
-    color: var(--green);
-    font-size: 14px;
+  /* --- Floating cart bar --- */
+  .cart-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    max-width: 720px;
+    margin: 0 auto;
+    background: var(--ink);
+    color: #fff;
+    border-radius: 10px;
+    padding: 14px 18px;
     display: none;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
   }
 
-  .success-msg.show { display: block; }
+  .cart-bar.show { display: flex; }
+  .cart-bar-info { font-size: 13px; }
+  .cart-bar-total { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 500; }
+
+  /* --- Cart page --- */
+  .cart-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .cart-row:last-child { border-bottom: none; }
+  .cart-row-icon { width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .cart-row-icon svg { width: 20px; height: 20px; }
+  .cart-row-info { flex: 1; }
+  .cart-row-name { font-size: 14px; font-weight: 500; }
+  .cart-row-price { font-size: 12.5px; color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; }
+  .cart-row-stepper { display: flex; align-items: center; gap: 6px; }
+  .cart-row-stepper button { width: 28px; height: 28px; padding: 0; background: var(--paper); color: var(--ink); border: 1px solid var(--line); font-size: 14px; }
+  .cart-row-line-total { font-family: 'JetBrains Mono', monospace; font-size: 14px; min-width: 64px; text-align: right; }
+
+  .cart-summary-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; color: var(--ink-soft); }
+  .cart-total-row { display: flex; justify-content: space-between; padding-top: 14px; margin-top: 8px; border-top: 1px solid var(--ink); font-size: 17px; font-weight: 500; }
+  .cart-total-row .mono { color: var(--green); font-size: 22px; }
+
+  .back-link {
+    background: none; border: none; color: var(--ink-soft); font-size: 13px;
+    padding: 0 0 12px; width: auto; text-align: left; font-weight: 500;
+  }
+
+  /* --- Receipt --- */
+  .receipt { border: 1px dashed var(--line); border-radius: 8px; padding: 20px; margin-top: 20px; background: var(--paper); }
+  .receipt-header { text-align: center; margin-bottom: 16px; }
+  .receipt-line { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .receipt-line:last-child { border-bottom: none; }
+  .receipt-total { display: flex; justify-content: space-between; font-weight: 500; font-size: 16px; padding-top: 12px; margin-top: 8px; border-top: 1px solid var(--ink); }
+  .receipt-discount-line { display: flex; justify-content: space-between; font-size: 12.5px; padding: 4px 0; color: var(--green); }
+  .free-badge { display: inline-block; background: var(--green-soft); color: var(--green); font-size: 10.5px; font-weight: 500; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+  .offer-banner { background: var(--green-soft); border: 1px solid var(--green); color: var(--green); font-size: 12.5px; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
 </style>
 </head>
 <body>
 
-<div class="wrap">
-  <header>
-    <p class="eyebrow">Store 1</p>
-    <h1>Demand forecaster</h1>
-    <p class="sub">Estimate expected sales for an upcoming day, based on recent history.</p>
-  </header>
+<div class="app-shell">
 
-  <div class="card">
-    <p class="eyebrow" style="margin-bottom: 4px;">Store 1 &middot; Last 30 days</p>
-    <h2 style="font-family: 'Fraunces', serif; font-size: 18px; margin: 0 0 2px;">Daily sales trend</h2>
-    <p class="sub" style="margin: 0 0 16px;">Total units sold per day, across all items.</p>
-    <canvas id="trendChart" height="90"></canvas>
-  </div>
-
-  <div class="card" style="margin-top: 20px;">
-    <div class="row">
-      <div class="field">
-        <label for="dayOfWeek">Day of week</label>
-        <select id="dayOfWeek">
-          <option value="1">Monday</option>
-          <option value="2">Tuesday</option>
-          <option value="3">Wednesday</option>
-          <option value="4">Thursday</option>
-          <option value="5">Friday</option>
-          <option value="6">Saturday</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="promo">Promo running?</label>
-        <select id="promo">
-          <option value="0">No</option>
-          <option value="1">Yes</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="field">
-        <label for="salesLag1">Sales yesterday</label>
-        <input type="number" id="salesLag1" value="4800" min="0">
-      </div>
-      <div class="field">
-        <label for="salesLag7">Sales, same day last week</label>
-        <input type="number" id="salesLag7" value="5100" min="0">
-      </div>
-    </div>
-
-    <button id="predictBtn">Predict sales</button>
-
-    <div class="error" id="errorBox"></div>
-
-    <div class="result" id="resultBox">
-      <p class="result-label">Predicted sales</p>
-      <p class="result-value" id="resultValue">0</p>
-      <p class="result-note">Based on day of week, promo status, and recent sales history.</p>
+  <div class="topbar">
+    <div>
+      <p class="brand-name">General Store</p>
+      <p class="brand-sub">Store 1 &middot; Demand forecaster</p>
     </div>
   </div>
 
-  <div class="card" style="margin-top: 20px;">
-    <p class="eyebrow" style="margin-bottom: 12px;">Top-selling items</p>
-
-    <div class="row">
-      <div class="field">
-        <label for="startDate">From</label>
-        <input type="date" id="startDate" value="2017-12-17">
-      </div>
-      <div class="field">
-        <label for="endDate">To</label>
-        <input type="date" id="endDate" value="2017-12-31">
-      </div>
-    </div>
-
-    <button id="loadItemsBtn">Show top items</button>
-
-    <div id="topItemsList" style="margin-top: 16px;"></div>
+  <div class="nav">
+    <button class="nav-btn active" data-page="dashboard">Dashboard</button>
+    <button class="nav-btn" data-page="billing">Billing</button>
+    <button class="nav-btn" data-page="inventory">Inventory</button>
   </div>
 
-  <div class="card" style="margin-top: 20px;">
-    <p class="eyebrow" style="margin-bottom: 12px;">Inventory</p>
-
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="view">Current stock</button>
-      <button class="tab-btn" data-tab="stockup">Stock up</button>
-      <button class="tab-btn" data-tab="bill">New bill</button>
+  <!-- ===================== DASHBOARD ===================== -->
+  <div class="page active" id="page-dashboard">
+    <div class="card">
+      <p class="eyebrow">Last 30 days</p>
+      <p class="card-title">Daily sales trend</p>
+      <p class="card-sub">Total units sold per day, across all items.</p>
+      <canvas id="trendChart" height="90"></canvas>
     </div>
 
-    <!-- Current stock -->
-    <div class="tab-panel active" id="panel-view">
-      <div class="inv-table" id="inventoryTable">
-        <div class="inv-row"><span>Loading...</span></div>
-      </div>
-    </div>
-
-    <!-- Stock up -->
-    <div class="tab-panel" id="panel-stockup">
+    <div class="card">
+      <p class="eyebrow">Forecast</p>
+      <p class="card-title">Predict tomorrow's sales</p>
       <div class="row">
         <div class="field">
-          <label for="stockItemId">Item ID (1-50)</label>
-          <input type="number" id="stockItemId" min="1" max="50" value="1">
+          <label for="dayOfWeek">Day of week</label>
+          <select id="dayOfWeek">
+            <option value="1">Monday</option><option value="2">Tuesday</option>
+            <option value="3">Wednesday</option><option value="4">Thursday</option>
+            <option value="5">Friday</option><option value="6">Saturday</option>
+          </select>
         </div>
         <div class="field">
-          <label for="stockQty">Quantity received</label>
-          <input type="number" id="stockQty" min="1" value="10">
+          <label for="promo">Promo running?</label>
+          <select id="promo"><option value="0">No</option><option value="1">Yes</option></select>
         </div>
       </div>
-      <button id="stockUpBtn">Add to stock</button>
+      <div class="row">
+        <div class="field"><label for="salesLag1">Sales yesterday</label><input type="number" id="salesLag1" value="4800" min="0"></div>
+        <div class="field"><label for="salesLag7">Sales, same day last week</label><input type="number" id="salesLag7" value="5100" min="0"></div>
+      </div>
+      <button id="predictBtn">Predict sales</button>
+      <div class="error" id="errorBox"></div>
+      <div style="margin-top: 20px; display: none;" id="resultBox">
+        <p class="card-sub" style="margin-bottom: 4px;">Predicted sales</p>
+        <p class="result-value" id="resultValue">0</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow">Top-selling items</p>
+      <div class="row">
+        <div class="field"><label for="startDate">From</label><input type="date" id="startDate" value="2030-12-17" min="2026-01-01" max="2030-12-31"></div>
+        <div class="field"><label for="endDate">To</label><input type="date" id="endDate" value="2030-12-31" min="2026-01-01" max="2030-12-31"></div>
+      </div>
+      <button id="loadItemsBtn" class="secondary">Show top items</button>
+      <div id="topItemsList" style="margin-top: 16px;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== BILLING ===================== -->
+  <div class="page" id="page-billing">
+
+    <!-- Grid subview -->
+    <div class="subview active" id="billing-grid">
+      <div class="grid-search">
+        <input type="text" id="productFilter" placeholder="Search products...">
+      </div>
+      <div class="category-tabs" id="categoryTabs"></div>
+      <div class="product-grid" id="productGrid"></div>
+    </div>
+
+    <!-- Cart subview -->
+    <div class="subview" id="billing-cart">
+      <button class="back-link" id="backToGridBtn">&larr; Back to products</button>
+      <div class="card">
+        <p class="eyebrow">Current bill</p>
+        <p class="card-title">Your cart</p>
+        <div class="offer-banner">Spend ₹500+ for 5% off, ₹1000+ for 10% off, ₹5000+ for 20% off. Buy 2 Amul Milk, get 1 Cadbury Dairy Milk free.</div>
+        <div id="cartRows"></div>
+        <div class="cart-summary-row"><span>Items</span><span class="mono" id="cartItemCount">0</span></div>
+        <div class="cart-total-row"><span>Total</span><span class="mono" id="cartTotal">₹0</span></div>
+        <button id="completeSaleBtn" style="margin-top: 16px;">Complete sale</button>
+        <div class="error" id="billErrorMsg"></div>
+      </div>
+    </div>
+
+    <!-- Receipt subview -->
+    <div class="subview" id="billing-receipt">
+      <div class="card">
+        <div class="receipt" id="receiptContent"></div>
+        <button class="secondary" id="newBillBtn" style="margin-top: 16px;">Start new bill</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== INVENTORY ===================== -->
+  <div class="page" id="page-inventory">
+    <div class="card">
+      <p class="eyebrow">Current stock</p>
+      <p class="card-title">Inventory levels</p>
+      <div id="inventoryTable"></div>
+    </div>
+    <div class="card">
+      <p class="eyebrow">Restock</p>
+      <p class="card-title">Add to stock</p>
+      <div class="row">
+        <div class="field"><label for="stockItemId">Item ID</label><input type="number" id="stockItemId" min="1" max="50" value="1"></div>
+        <div class="field"><label for="stockQty">Quantity received</label><input type="number" id="stockQty" min="1" value="10"></div>
+      </div>
+      <button id="stockUpBtn" class="secondary">Add to stock</button>
       <div class="success-msg" id="stockSuccessMsg"></div>
       <div class="error" id="stockErrorMsg"></div>
     </div>
-
-    <!-- New bill -->
-    <div class="tab-panel" id="panel-bill">
-      <div class="row">
-        <div class="field">
-          <label for="billItemId">Item ID (1-50)</label>
-          <input type="number" id="billItemId" min="1" max="50" value="1">
-        </div>
-        <div class="field">
-          <label for="billQty">Quantity sold</label>
-          <input type="number" id="billQty" min="1" value="1">
-        </div>
-      </div>
-      <button id="addLineBtn" style="background: var(--ink-soft);">Add item to bill</button>
-
-      <div id="billLines" style="margin-top: 16px;"></div>
-
-      <button id="submitBillBtn" style="margin-top: 16px;">Submit bill</button>
-      <div class="success-msg" id="billSuccessMsg"></div>
-      <div class="error" id="billErrorMsg"></div>
-    </div>
   </div>
+
+</div>
+
+<div class="cart-bar" id="cartBar">
+  <span class="cart-bar-info"><span id="cartBarCount">0</span> items in cart</span>
+  <span class="cart-bar-total" id="cartBarTotal">₹0 &nbsp;View cart &rarr;</span>
 </div>
 
 <script>
-  const API_URL = "http://127.0.0.1:8000/predict";
+  const API_URL = "https://store-management-app-86sz.onrender.com";
+  function formatRupees(n) { return "₹" + Math.round(n).toLocaleString("en-IN"); }
 
-  const btn = document.getElementById("predictBtn");
+  // --- Category icons: simple inline SVGs, matched by keyword ---
+  const categories = [
+    { name: "Dairy", keys: ["milk","butter","cheese","curd","paneer"], color: "#E6F1FB", stroke: "#185FA5",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="1.6"><path d="M9 2h6l1 4-2 2v12a1 1 0 01-1 1h-4a1 1 0 01-1-1V8L6 6l1-4h2z"/></svg>` },
+    { name: "Fruits & vegetables", keys: ["banana","apple","tomato","onion","potato","carrot","spinach","fruit","vegetable"], color: "#EAF3DE", stroke: "#3B6D11",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="1.6"><circle cx="12" cy="14" r="7"/><path d="M12 7c0-2 1-4 3-4"/></svg>` },
+    { name: "Staples", keys: ["rice","atta","sugar","salt","oil","tea","coffee"], color: "#FAEEDA", stroke: "#854F0B",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="1.6"><rect x="6" y="3" width="12" height="18" rx="1"/><path d="M9 3v18M15 3v18"/></svg>` },
+    { name: "Snacks & packaged", keys: ["biscuit","chips","dairy milk","chocolate","noodles","pasta","ketchup","mayonnaise","peanut","honey"], color: "#FAECE7", stroke: "#993C1D",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#993C1D" stroke-width="1.6"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16"/></svg>` },
+    { name: "Beverages", keys: ["water","cola","red bull","juice","tetley","drink"], color: "#EEEDFE", stroke: "#534AB7",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#534AB7" stroke-width="1.6"><path d="M9 2h6v4l2 3v11a1 1 0 01-1 1H8a1 1 0 01-1-1V9l2-3V2z"/></svg>` },
+    { name: "Cleaning", keys: ["dish","surf","detergent","toilet","hand soap","tissue","trash"], color: "#FBEAF0", stroke: "#993556",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#993556" stroke-width="1.6"><path d="M12 2c3 3 5 6 5 9a5 5 0 01-10 0c0-3 2-6 5-9z"/></svg>` },
+    { name: "Personal care", keys: ["colgate","shampoo","lotion","toothpaste"], color: "#E1F5EE", stroke: "#0F6E56",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#0F6E56" stroke-width="1.6"><rect x="7" y="3" width="10" height="18" rx="3"/><path d="M10 3V1h4v2"/></svg>` },
+    { name: "Household", keys: ["batteries","bulb","matchbox","candle"], color: "#FAEEDA", stroke: "#BA7517",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="1.6"><circle cx="12" cy="10" r="6"/><path d="M9 21h6M10 17h4"/></svg>` },
+    { name: "Stationery", keys: ["notebook","pen","classmate","cello"], color: "#F1EFE8", stroke: "#5F5E5A",
+      svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#5F5E5A" stroke-width="1.6"><path d="M4 20l1-4L16 5l4 4L9 20l-5 0z"/></svg>` },
+  ];
+  const defaultIcon = { name: "Other", color: "#F1EFE8", stroke: "#5F5E5A",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="#5F5E5A" stroke-width="1.6"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>` };
+
+  function getIcon(itemName) {
+    const lower = itemName.toLowerCase();
+    for (const cat of categories) {
+      if (cat.keys.some(k => lower.includes(k))) return cat;
+    }
+    return defaultIcon;
+  }
+
+  let activeCategory = "All";
+
+  function renderCategoryTabs() {
+    const names = ["All", ...categories.map(c => c.name), "Other"];
+    const tabsEl = document.getElementById("categoryTabs");
+    tabsEl.innerHTML = names.map(name => `
+      <button class="category-tab ${name === activeCategory ? 'active' : ''}" data-cat="${name}">${name}</button>
+    `).join("");
+  }
+
+  document.getElementById("categoryTabs").addEventListener("click", (e) => {
+    const cat = e.target.dataset.cat;
+    if (!cat) return;
+    activeCategory = cat;
+    renderCategoryTabs();
+    applyProductFilters();
+  });
+
+  function applyProductFilters() {
+    const q = document.getElementById("productFilter").value.toLowerCase();
+    let filtered = allProducts.filter(p => p.item_name.toLowerCase().includes(q));
+    if (activeCategory !== "All") {
+      filtered = filtered.filter(p => getIcon(p.item_name).name === activeCategory);
+    }
+    renderProductGrid(filtered);
+  }
+
+  // --- Navigation ---
+  const navBtns = document.querySelectorAll(".nav-btn");
+  navBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      navBtns.forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(`page-${btn.dataset.page}`).classList.add("active");
+    });
+  });
+
+  function showBillingSubview(name) {
+    document.querySelectorAll("#page-billing .subview").forEach(v => v.classList.remove("active"));
+    document.getElementById(`billing-${name}`).classList.add("active");
+  }
+
+  // --- Prediction ---
+  const predictBtn = document.getElementById("predictBtn");
   const resultBox = document.getElementById("resultBox");
   const resultValue = document.getElementById("resultValue");
   const errorBox = document.getElementById("errorBox");
 
-  btn.addEventListener("click", async () => {
+  predictBtn.addEventListener("click", async () => {
     errorBox.classList.remove("show");
-    resultBox.classList.remove("show");
-    btn.disabled = true;
-    btn.textContent = "Predicting...";
-
+    resultBox.style.display = "none";
+    predictBtn.disabled = true;
+    predictBtn.textContent = "Predicting...";
     const payload = {
       day_of_week: parseInt(document.getElementById("dayOfWeek").value),
       promo: parseInt(document.getElementById("promo").value),
       sales_lag_1: parseFloat(document.getElementById("salesLag1").value),
       sales_lag_7: parseFloat(document.getElementById("salesLag7").value)
     };
-
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+      const response = await fetch(`${API_URL}/predict`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
-
-      if (!response.ok) {
-        throw new Error("Server returned an error. Check your backend is running.");
-      }
-
+      if (!response.ok) throw new Error("Server error");
       const data = await response.json();
       resultValue.textContent = Math.round(data.predicted_sales).toLocaleString();
-      resultBox.classList.add("show");
+      resultBox.style.display = "block";
     } catch (err) {
-      errorBox.textContent = "Couldn't reach the prediction server. Make sure backend.py is running.";
+      errorBox.textContent = "Couldn't reach the prediction server.";
       errorBox.classList.add("show");
     } finally {
-      btn.disabled = false;
-      btn.textContent = "Predict sales";
+      predictBtn.disabled = false;
+      predictBtn.textContent = "Predict sales";
     }
   });
 
+  // --- Top items ---
   async function loadTopItems() {
     const listEl = document.getElementById("topItemsList");
     const startDate = document.getElementById("startDate").value;
     const endDate = document.getElementById("endDate").value;
-
-    if (!startDate || !endDate) {
-      listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 14px;">Pick both dates.</p>';
-      return;
-    }
-
+    if (!startDate || !endDate) return;
     const lookbackDays = Math.round((new Date(endDate) - new Date(startDate)) / 86400000);
-
-    listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 14px;">Loading...</p>';
-
+    listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Loading...</p>';
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/top-items?store_id=1&as_of_date=${endDate}&lookback_days=${lookbackDays}&top_n=5`
-      );
+      const response = await fetch(`${API_URL}/top-items?store_id=1&as_of_date=${endDate}&lookback_days=${lookbackDays}&top_n=5`);
       const data = await response.json();
-
       listEl.innerHTML = data.map(row => `
-        <div class="item-row">
-          <span class="item-name">Item #${row.item}</span>
-          <span class="item-sales">${Math.round(row.total_sales).toLocaleString()} units</span>
-        </div>
+        <div class="list-row"><span>${row.item_name}</span><span class="mono" style="color: var(--green);">${Math.round(row.total_sales).toLocaleString()} units</span></div>
       `).join("");
     } catch (err) {
-      listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 14px;">Could not load top items.</p>';
+      listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load top items.</p>';
     }
   }
-
   document.getElementById("loadItemsBtn").addEventListener("click", loadTopItems);
   loadTopItems();
-
-  // --- Tabs ---
-  const tabBtns = document.querySelectorAll(".tab-btn");
-  tabBtns.forEach(tabBtn => {
-    tabBtn.addEventListener("click", () => {
-      tabBtns.forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-      tabBtn.classList.add("active");
-      document.getElementById(`panel-${tabBtn.dataset.tab}`).classList.add("active");
-    });
-  });
-
-  // --- Load current inventory ---
-  async function loadInventory() {
-    const tableEl = document.getElementById("inventoryTable");
-    try {
-      const response = await fetch("http://127.0.0.1:8000/inventory");
-      const data = await response.json();
-
-      tableEl.innerHTML = data.map(row => `
-        <div class="inv-row">
-          <span>${row.item_name}</span>
-          <span class="inv-stock ${row.current_stock < 15 ? 'low' : ''}">${row.current_stock} in stock</span>
-        </div>
-      `).join("");
-    } catch (err) {
-      tableEl.innerHTML = '<div class="inv-row"><span>Could not load inventory.</span></div>';
-    }
-  }
-  loadInventory();
-
-  // --- Stock up ---
-  document.getElementById("stockUpBtn").addEventListener("click", async () => {
-    const successMsg = document.getElementById("stockSuccessMsg");
-    const errorMsg = document.getElementById("stockErrorMsg");
-    successMsg.classList.remove("show");
-    errorMsg.classList.remove("show");
-
-    const payload = {
-      item_id: parseInt(document.getElementById("stockItemId").value),
-      quantity_added: parseInt(document.getElementById("stockQty").value)
-    };
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/stock-up", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-
-      if (data.error) {
-        errorMsg.textContent = data.error;
-        errorMsg.classList.add("show");
-      } else {
-        successMsg.textContent = `Added ${payload.quantity_added} units to item ${payload.item_id}.`;
-        successMsg.classList.add("show");
-        loadInventory();
-      }
-    } catch (err) {
-      errorMsg.textContent = "Could not reach the server.";
-      errorMsg.classList.add("show");
-    }
-  });
-
-  // --- Billing: build a list of items, then submit as one bill ---
-  let currentBill = [];
-
-  function renderBillLines() {
-    const container = document.getElementById("billLines");
-    if (currentBill.length === 0) {
-      container.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">No items added yet.</p>';
-      return;
-    }
-    container.innerHTML = currentBill.map((line, index) => `
-      <div class="bill-line">
-        <span>Item ${line.item_id} &times; ${line.quantity}</span>
-        <button data-index="${index}" class="remove-line-btn">Remove</button>
-      </div>
-    `).join("");
-
-    document.querySelectorAll(".remove-line-btn").forEach(b => {
-      b.addEventListener("click", () => {
-        currentBill.splice(parseInt(b.dataset.index), 1);
-        renderBillLines();
-      });
-    });
-  }
-  renderBillLines();
-
-  document.getElementById("addLineBtn").addEventListener("click", () => {
-    const itemId = parseInt(document.getElementById("billItemId").value);
-    const qty = parseInt(document.getElementById("billQty").value);
-    if (!itemId || !qty || qty <= 0) return;
-    currentBill.push({ item_id: itemId, quantity: qty });
-    renderBillLines();
-  });
-
-  document.getElementById("submitBillBtn").addEventListener("click", async () => {
-    const successMsg = document.getElementById("billSuccessMsg");
-    const errorMsg = document.getElementById("billErrorMsg");
-    successMsg.classList.remove("show");
-    errorMsg.classList.remove("show");
-
-    if (currentBill.length === 0) {
-      errorMsg.textContent = "Add at least one item to the bill first.";
-      errorMsg.classList.add("show");
-      return;
-    }
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/bill", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: currentBill })
-      });
-
-      if (!response.ok) {
-        throw new Error("Bill failed — check item IDs and available stock.");
-      }
-
-      const data = await response.json();
-      successMsg.textContent = `Bill #${data.bill_id} recorded successfully.`;
-      successMsg.classList.add("show");
-      currentBill = [];
-      renderBillLines();
-      loadInventory();
-    } catch (err) {
-      errorMsg.textContent = "Bill failed — check item IDs and available stock.";
-      errorMsg.classList.add("show");
-    }
-  });
 
   // --- Trend chart ---
   async function loadTrendChart() {
     try {
-      const response = await fetch("http://127.0.0.1:8000/sales-history?store_id=1&days=30");
+      const response = await fetch(`${API_URL}/sales-history?store_id=1&days=30`);
       const data = await response.json();
-
       const ctx = document.getElementById("trendChart").getContext("2d");
       new Chart(ctx, {
         type: "line",
         data: {
-          labels: data.map(row => row.date.slice(5)), // show MM-DD only
-          datasets: [{
-            data: data.map(row => row.sales),
-            borderColor: "#2F5D45",
-            backgroundColor: "rgba(47, 93, 69, 0.08)",
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.3,
-            fill: true
-          }]
+          labels: data.map(row => row.date.slice(5)),
+          datasets: [{ data: data.map(row => row.sales), borderColor: "#2F5D45", backgroundColor: "rgba(47, 93, 69, 0.08)", borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true }]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                title: (items) => `Date: ${items[0].label}`,
-                label: (item) => `Sales: ${item.formattedValue} units`
-              }
-            }
-          },
+          plugins: { legend: { display: false }, tooltip: { callbacks: { title: (i) => `Date: ${i[0].label}`, label: (i) => `Sales: ${i.formattedValue} units` } } },
           scales: {
             x: { ticks: { color: "#6B6255", maxTicksLimit: 6 }, grid: { display: false } },
-            y: {
-              ticks: { color: "#6B6255" },
-              grid: { color: "#EFE9DC" },
-              title: { display: true, text: "Units sold", color: "#6B6255", font: { size: 12 } }
-            }
+            y: { ticks: { color: "#6B6255" }, grid: { color: "#EFE9DC" }, title: { display: true, text: "Units sold", color: "#6B6255", font: { size: 12 } } }
           }
         }
       });
-    } catch (err) {
-      console.error("Could not load trend chart:", err);
-    }
+    } catch (err) { console.error("Could not load trend chart:", err); }
   }
   loadTrendChart();
+
+  // --- Inventory list (inventory page) ---
+  async function loadInventory() {
+    const tableEl = document.getElementById("inventoryTable");
+    try {
+      const response = await fetch(`${API_URL}/inventory`);
+      const data = await response.json();
+      tableEl.innerHTML = data.map(row => `
+        <div class="list-row"><span>${row.item_name}</span><span class="mono ${row.current_stock < 15 ? 'inv-stock low' : ''}">${row.current_stock} in stock</span></div>
+      `).join("");
+    } catch (err) {
+      tableEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load inventory.</p>';
+    }
+  }
+  loadInventory();
+
+  document.getElementById("stockUpBtn").addEventListener("click", async () => {
+    const successMsg = document.getElementById("stockSuccessMsg");
+    const errorMsg = document.getElementById("stockErrorMsg");
+    successMsg.classList.remove("show"); errorMsg.classList.remove("show");
+    const payload = { item_id: parseInt(document.getElementById("stockItemId").value), quantity_added: parseInt(document.getElementById("stockQty").value) };
+    try {
+      const response = await fetch(`${API_URL}/stock-up`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await response.json();
+      if (data.error) { errorMsg.textContent = data.error; errorMsg.classList.add("show"); }
+      else { successMsg.textContent = `Added ${payload.quantity_added} units to item ${payload.item_id}.`; successMsg.classList.add("show"); loadInventory(); loadProducts(); }
+    } catch (err) { errorMsg.textContent = "Could not reach the server."; errorMsg.classList.add("show"); }
+  });
+
+  // --- Billing: product grid ---
+  let allProducts = [];
+  let cart = {}; // item_id -> { item_name, price, quantity, stock }
+
+  async function loadProducts() {
+    try {
+      const response = await fetch(`${API_URL}/inventory`);
+      allProducts = await response.json();
+      renderCategoryTabs();
+      applyProductFilters();
+    } catch (err) {
+      document.getElementById("productGrid").innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load products.</p>';
+    }
+  }
+
+  function renderProductGrid(products) {
+    const grid = document.getElementById("productGrid");
+    grid.innerHTML = products.map(p => {
+      const icon = getIcon(p.item_name);
+      const qty = cart[p.item_id] ? cart[p.item_id].quantity : 0;
+      return `
+        <div class="product-card">
+          <div class="product-icon" style="background:${icon.color}">${icon.svg}</div>
+          <div class="product-name">${p.item_name}</div>
+          <div class="product-price">${formatRupees(p.price)}</div>
+          ${qty === 0
+            ? `<button class="add-btn" data-add="${p.item_id}">Add</button>`
+            : `<div class="stepper">
+                 <button data-minus="${p.item_id}">&minus;</button>
+                 <span class="stepper-qty">${qty}</span>
+                 <button data-plus="${p.item_id}">+</button>
+               </div>`
+          }
+        </div>
+      `;
+    }).join("");
+  }
+
+  document.getElementById("productGrid").addEventListener("click", (e) => {
+    const addId = e.target.dataset.add;
+    const plusId = e.target.dataset.plus;
+    const minusId = e.target.dataset.minus;
+
+    if (addId) addToCart(parseInt(addId));
+    if (plusId) addToCart(parseInt(plusId));
+    if (minusId) removeFromCart(parseInt(minusId));
+  });
+
+  function addToCart(itemId) {
+    const product = allProducts.find(p => p.item_id === itemId);
+    if (!product) return;
+    if (!cart[itemId]) {
+      cart[itemId] = { item_name: product.item_name, price: product.price, quantity: 0 };
+    }
+    cart[itemId].quantity += 1;
+    applyProductFilters();
+    updateCartBar();
+  }
+
+  function removeFromCart(itemId) {
+    if (!cart[itemId]) return;
+    cart[itemId].quantity -= 1;
+    if (cart[itemId].quantity <= 0) delete cart[itemId];
+    applyProductFilters();
+    updateCartBar();
+  }
+
+  function cartTotals() {
+    const items = Object.entries(cart).map(([id, line]) => ({ item_id: parseInt(id), ...line }));
+    const count = items.reduce((sum, l) => sum + l.quantity, 0);
+    const total = items.reduce((sum, l) => sum + l.quantity * l.price, 0);
+    return { items, count, total };
+  }
+
+  function updateCartBar() {
+    const { count, total } = cartTotals();
+    const bar = document.getElementById("cartBar");
+    document.getElementById("cartBarCount").textContent = count;
+    document.getElementById("cartBarTotal").innerHTML = `${formatRupees(total)} &nbsp;View cart &rarr;`;
+    bar.classList.toggle("show", count > 0);
+  }
+
+  document.getElementById("cartBar").addEventListener("click", () => {
+    renderCartPage();
+    showBillingSubview("cart");
+  });
+
+  document.getElementById("backToGridBtn").addEventListener("click", () => showBillingSubview("grid"));
+
+  document.getElementById("productFilter").addEventListener("input", applyProductFilters);
+
+  function renderCartPage() {
+    const { items, count, total } = cartTotals();
+    const rowsEl = document.getElementById("cartRows");
+
+    if (items.length === 0) {
+      rowsEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Your cart is empty.</p>';
+    } else {
+      rowsEl.innerHTML = items.map(line => {
+        const icon = getIcon(line.item_name);
+        return `
+          <div class="cart-row">
+            <div class="cart-row-icon" style="background:${icon.color}">${icon.svg}</div>
+            <div class="cart-row-info">
+              <div class="cart-row-name">${line.item_name}</div>
+              <div class="cart-row-price">${formatRupees(line.price)} each</div>
+            </div>
+            <div class="cart-row-stepper">
+              <button data-cart-minus="${line.item_id}">&minus;</button>
+              <span class="mono" style="min-width: 18px; text-align:center;">${line.quantity}</span>
+              <button data-cart-plus="${line.item_id}">+</button>
+            </div>
+            <div class="cart-row-line-total">${formatRupees(line.price * line.quantity)}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    document.getElementById("cartItemCount").textContent = count;
+
+    let previewPercent = 0;
+    if (total >= 5000) previewPercent = 20;
+    else if (total >= 1000) previewPercent = 10;
+    else if (total >= 500) previewPercent = 5;
+
+    if (previewPercent > 0) {
+      const estimatedTotal = Math.round(total * (1 - previewPercent / 100));
+      document.getElementById("cartTotal").innerHTML = `${formatRupees(estimatedTotal)} <span style="font-size:12px; color:var(--ink-soft);">(${previewPercent}% off applied at checkout)</span>`;
+    } else {
+      document.getElementById("cartTotal").textContent = formatRupees(total);
+    }
+  }
+
+  document.getElementById("cartRows").addEventListener("click", (e) => {
+    const plusId = e.target.dataset.cartPlus;
+    const minusId = e.target.dataset.cartMinus;
+    if (plusId) { addToCart(parseInt(plusId)); renderCartPage(); }
+    if (minusId) { removeFromCart(parseInt(minusId)); renderCartPage(); }
+  });
+
+  document.getElementById("completeSaleBtn").addEventListener("click", async () => {
+    const errorMsg = document.getElementById("billErrorMsg");
+    errorMsg.classList.remove("show");
+    const { items } = cartTotals();
+
+    if (items.length === 0) {
+      errorMsg.textContent = "Your cart is empty.";
+      errorMsg.classList.add("show");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/bill`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: items.map(l => ({ item_id: l.item_id, quantity: l.quantity })) })
+      });
+      if (!response.ok) throw new Error("Bill failed");
+      const data = await response.json();
+      showReceipt(data);
+      cart = {};
+      updateCartBar();
+      loadProducts();
+      loadInventory();
+      showBillingSubview("receipt");
+    } catch (err) {
+      errorMsg.textContent = "Sale failed — check stock availability.";
+      errorMsg.classList.add("show");
+    }
+  });
+
+  function showReceipt(bill) {
+    const receiptContent = document.getElementById("receiptContent");
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-IN") + " " + now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+
+    const lineItemsHtml = bill.items.map(item => {
+      if (item.is_free) {
+        return `<div class="receipt-line"><span>${item.item_name} &times; ${item.quantity} <span class="free-badge">FREE</span></span><span class="mono">${formatRupees(0)}</span></div>`;
+      }
+      const seasonalNote = item.seasonal_discount > 0 ? `<div class="receipt-discount-line"><span>&nbsp;&nbsp;${item.seasonal_label} discount</span><span class="mono">-${formatRupees(item.seasonal_discount)}</span></div>` : "";
+      return `
+        <div class="receipt-line"><span>${item.item_name} &times; ${item.quantity}</span><span class="mono">${formatRupees(item.line_total)}</span></div>
+        ${seasonalNote}
+      `;
+    }).join("");
+
+    const tierNote = bill.tier_discount_amount > 0
+      ? `<div class="receipt-discount-line"><span>Bill discount (${bill.tier_discount_percent}% off)</span><span class="mono">-${formatRupees(bill.tier_discount_amount)}</span></div>`
+      : "";
+
+    receiptContent.innerHTML = `
+      <div class="receipt-header">
+        <p class="card-title">General Store</p>
+        <p class="card-sub">Bill #${bill.bill_id} &middot; ${dateStr}</p>
+      </div>
+      ${lineItemsHtml}
+      <div class="receipt-line" style="border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 4px;"><span>Subtotal</span><span class="mono">${formatRupees(bill.paid_subtotal)}</span></div>
+      ${tierNote}
+      <div class="receipt-total"><span>Total</span><span class="mono">${formatRupees(bill.grand_total)}</span></div>
+    `;
+  }
+
+  document.getElementById("newBillBtn").addEventListener("click", () => showBillingSubview("grid"));
+
+  loadProducts();
 </script>
 
 </body>
