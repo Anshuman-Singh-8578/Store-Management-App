@@ -163,13 +163,17 @@ def reorder_suggestions(days: int = 14):
     with engine.connect() as conn:
         result = conn.execute(query, {"days": days}).fetchall()
 
+    LOW_STOCK_THRESHOLD = 15
+
     suggestions = []
     for row in result:
         daily_rate = row.units_sold_recently / days
         days_of_stock_left = row.current_stock / daily_rate if daily_rate > 0 else None
 
-        # Flag if stock will run out within a week at the current sales pace
-        should_reorder = daily_rate > 0 and days_of_stock_left is not None and days_of_stock_left < 7
+        velocity_flag = daily_rate > 0 and days_of_stock_left is not None and days_of_stock_left < 7
+        low_stock_flag = row.current_stock < LOW_STOCK_THRESHOLD
+
+        should_reorder = velocity_flag or low_stock_flag
 
         suggestions.append({
             "item_id": row.item_id,
@@ -177,7 +181,8 @@ def reorder_suggestions(days: int = 14):
             "current_stock": row.current_stock,
             "units_sold_recently": row.units_sold_recently,
             "days_of_stock_left": round(days_of_stock_left) if days_of_stock_left is not None else None,
-            "should_reorder": should_reorder
+            "should_reorder": should_reorder,
+            "reason": "selling fast" if velocity_flag else ("low stock" if low_stock_flag else None)
         })
 
     return suggestions
