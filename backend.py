@@ -176,7 +176,7 @@ def reorder_suggestions(days: int = 14):
             "item_name": row.item_name,
             "current_stock": row.current_stock,
             "units_sold_recently": row.units_sold_recently,
-            "days_of_stock_left": round(days_of_stock_left, 1) if days_of_stock_left is not None else None,
+            "days_of_stock_left": round(days_of_stock_left) if days_of_stock_left is not None else None,
             "should_reorder": should_reorder
         })
 
