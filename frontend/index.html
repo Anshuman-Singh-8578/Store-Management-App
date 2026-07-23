@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Store Manager</title>
+<title>Demand Forecaster</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
@@ -247,6 +247,29 @@
   .receipt-discount-line { display: flex; justify-content: space-between; font-size: 12.5px; padding: 4px 0; color: var(--green); }
   .free-badge { display: inline-block; background: var(--green-soft); color: var(--green); font-size: 10.5px; font-weight: 500; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
   .offer-banner { background: var(--green-soft); border: 1px solid var(--green); color: var(--green); font-size: 12.5px; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+
+  /* --- Item lookup search --- */
+  .search-results {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    max-height: 240px; overflow-y: auto; z-index: 10; display: none;
+  }
+  .search-results.show { display: block; }
+  .search-result-item {
+    padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; font-size: 13px;
+  }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-item:hover { background: var(--paper); }
+
+  .reorder-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
+  }
+  .reorder-row:last-child { border-bottom: none; }
+  .reorder-row-name { font-size: 14px; font-weight: 500; }
+  .reorder-row-detail { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .reorder-badge { background: var(--red-soft); color: var(--red); font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -276,39 +299,42 @@
     </div>
 
     <div class="card">
-      <p class="eyebrow">Forecast</p>
-      <p class="card-title">Predict tomorrow's sales</p>
-      <div class="row">
-        <div class="field">
-          <label for="dayOfWeek">Day of week</label>
-          <select id="dayOfWeek">
-            <option value="1">Monday</option><option value="2">Tuesday</option>
-            <option value="3">Wednesday</option><option value="4">Thursday</option>
-            <option value="5">Friday</option><option value="6">Saturday</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="promo">Promo running?</label>
-          <select id="promo"><option value="0">No</option><option value="1">Yes</option></select>
-        </div>
+      <p class="eyebrow">Item lookup</p>
+      <p class="card-title">Sales history for a specific item</p>
+      <p class="card-sub">Search an item to see how it's been selling recently, so you know whether to reorder it.</p>
+
+      <div class="search-wrap" style="position: relative;">
+        <input type="text" id="itemLookupSearch" placeholder="Search item name, e.g. milk, biscuits...">
+        <div class="search-results" id="itemLookupResults"></div>
       </div>
-      <div class="row">
-        <div class="field"><label for="salesLag1">Sales yesterday</label><input type="number" id="salesLag1" value="4800" min="0"></div>
-        <div class="field"><label for="salesLag7">Sales, same day last week</label><input type="number" id="salesLag7" value="5100" min="0"></div>
+
+      <div class="row" style="margin-top: 16px;">
+        <button class="secondary" id="lookup7Btn" style="margin: 0;">Last 7 days</button>
+        <button class="secondary" id="lookup14Btn" style="margin: 0;">Last 14 days</button>
       </div>
-      <button id="predictBtn">Predict sales</button>
-      <div class="error" id="errorBox"></div>
-      <div style="margin-top: 20px; display: none;" id="resultBox">
-        <p class="card-sub" style="margin-bottom: 4px;">Predicted sales</p>
-        <p class="result-value" id="resultValue">0</p>
+
+      <div id="itemLookupEmpty" style="margin-top: 20px; color: var(--ink-soft); font-size: 13px;">Search for an item above to see its recent sales.</div>
+      <div id="itemLookupChartWrap" style="display: none; margin-top: 20px;">
+        <p class="card-sub" id="itemLookupTitle" style="margin-bottom: 12px;"></p>
+        <canvas id="itemLookupChart" height="90"></canvas>
+        <div id="itemLookupStats" style="margin-top: 12px;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow">Restock alert</p>
+      <p class="card-title">Consider ordering these soon</p>
+      <p class="card-sub">Based on recent sales pace vs. current stock.</p>
+      <div id="reorderList">
+        <p style="color: var(--ink-soft); font-size: 13px;">Loading...</p>
       </div>
     </div>
 
     <div class="card">
       <p class="eyebrow">Top-selling items</p>
       <div class="row">
-        <div class="field"><label for="startDate">From</label><input type="date" id="startDate" value="2030-12-17" min="2026-01-01" max="2030-12-31"></div>
-        <div class="field"><label for="endDate">To</label><input type="date" id="endDate" value="2030-12-31" min="2026-01-01" max="2030-12-31"></div>
+        <div class="field"><label for="startDate">From</label><input type="date" id="startDate"></div>
+        <div class="field"><label for="endDate">To</label><input type="date" id="endDate"></div>
       </div>
       <button id="loadItemsBtn" class="secondary">Show top items</button>
       <div id="topItemsList" style="margin-top: 16px;"></div>
@@ -458,39 +484,118 @@
     document.getElementById(`billing-${name}`).classList.add("active");
   }
 
-  // --- Prediction ---
-  const predictBtn = document.getElementById("predictBtn");
-  const resultBox = document.getElementById("resultBox");
-  const resultValue = document.getElementById("resultValue");
-  const errorBox = document.getElementById("errorBox");
+  // --- Item lookup: search ---
+  const itemLookupSearch = document.getElementById("itemLookupSearch");
+  const itemLookupResults = document.getElementById("itemLookupResults");
+  let lookupSearchTimeout = null;
+  let selectedLookupItem = null;
+  let lookupChartInstance = null;
 
-  predictBtn.addEventListener("click", async () => {
-    errorBox.classList.remove("show");
-    resultBox.style.display = "none";
-    predictBtn.disabled = true;
-    predictBtn.textContent = "Predicting...";
-    const payload = {
-      day_of_week: parseInt(document.getElementById("dayOfWeek").value),
-      promo: parseInt(document.getElementById("promo").value),
-      sales_lag_1: parseFloat(document.getElementById("salesLag1").value),
-      sales_lag_7: parseFloat(document.getElementById("salesLag7").value)
-    };
-    try {
-      const response = await fetch(`${API_URL}/predict`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error("Server error");
-      const data = await response.json();
-      resultValue.textContent = Math.round(data.predicted_sales).toLocaleString();
-      resultBox.style.display = "block";
-    } catch (err) {
-      errorBox.textContent = "Couldn't reach the prediction server.";
-      errorBox.classList.add("show");
-    } finally {
-      predictBtn.disabled = false;
-      predictBtn.textContent = "Predict sales";
+  itemLookupSearch.addEventListener("input", () => {
+    clearTimeout(lookupSearchTimeout);
+    const q = itemLookupSearch.value.trim();
+    if (q.length < 2) { itemLookupResults.classList.remove("show"); return; }
+    lookupSearchTimeout = setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_URL}/inventory/search?q=${encodeURIComponent(q)}`);
+        const data = await response.json();
+        itemLookupResults.innerHTML = data.length === 0
+          ? '<div class="search-result-item"><span>No matching items</span></div>'
+          : data.map(item => `<div class="search-result-item" data-id="${item.item_id}" data-name="${item.item_name}"><span>${item.item_name}</span></div>`).join("");
+        itemLookupResults.classList.add("show");
+      } catch (err) {
+        itemLookupResults.innerHTML = '<div class="search-result-item"><span>Search failed</span></div>';
+        itemLookupResults.classList.add("show");
+      }
+    }, 250);
+  });
+
+  itemLookupResults.addEventListener("click", (e) => {
+    const row = e.target.closest(".search-result-item");
+    if (!row || !row.dataset.id) return;
+    selectedLookupItem = { id: parseInt(row.dataset.id), name: row.dataset.name };
+    itemLookupSearch.value = row.dataset.name;
+    itemLookupResults.classList.remove("show");
+    loadItemLookupChart(14);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#itemLookupSearch") && !e.target.closest("#itemLookupResults")) {
+      itemLookupResults.classList.remove("show");
     }
   });
+
+  document.getElementById("lookup7Btn").addEventListener("click", () => loadItemLookupChart(7));
+  document.getElementById("lookup14Btn").addEventListener("click", () => loadItemLookupChart(14));
+
+  async function loadItemLookupChart(days) {
+    if (!selectedLookupItem) return;
+
+    document.getElementById("itemLookupEmpty").style.display = "none";
+    document.getElementById("itemLookupChartWrap").style.display = "block";
+    document.getElementById("itemLookupTitle").textContent = `${selectedLookupItem.name} — last ${days} days`;
+
+    try {
+      const response = await fetch(`${API_URL}/item-sales-history?item_id=${selectedLookupItem.id}&days=${days}`);
+      const data = await response.json();
+
+      const totalUnits = data.reduce((sum, d) => sum + d.units_sold, 0);
+      const avgPerDay = days > 0 ? (totalUnits / days).toFixed(1) : 0;
+
+      document.getElementById("itemLookupStats").innerHTML = `
+        <div class="list-row"><span>Total units sold</span><span class="mono">${totalUnits}</span></div>
+        <div class="list-row"><span>Average per day</span><span class="mono">${avgPerDay}</span></div>
+      `;
+
+      if (lookupChartInstance) lookupChartInstance.destroy();
+      const ctx = document.getElementById("itemLookupChart").getContext("2d");
+      lookupChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: data.map(d => d.date.slice(5)),
+          datasets: [{ data: data.map(d => d.units_sold), backgroundColor: "#2F5D45", borderRadius: 4 }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: "#6B6255" }, grid: { display: false } },
+            y: { ticks: { color: "#6B6255" }, grid: { color: "#EFE9DC" }, title: { display: true, text: "Units sold", color: "#6B6255", font: { size: 12 } } }
+          }
+        }
+      });
+    } catch (err) {
+      document.getElementById("itemLookupStats").innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load sales history.</p>';
+    }
+  }
+
+  // --- Reorder suggestions ---
+  async function loadReorderSuggestions() {
+    const listEl = document.getElementById("reorderList");
+    try {
+      const response = await fetch(`${API_URL}/reorder-suggestions?days=14`);
+      const data = await response.json();
+      const flagged = data.filter(item => item.should_reorder);
+
+      if (flagged.length === 0) {
+        listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Nothing urgent right now — stock levels look fine relative to recent sales.</p>';
+        return;
+      }
+
+      listEl.innerHTML = flagged.map(item => `
+        <div class="reorder-row">
+          <div>
+            <div class="reorder-row-name">${item.item_name}</div>
+            <div class="reorder-row-detail">${item.current_stock} in stock &middot; ${item.units_sold_recently} sold in last 14 days</div>
+          </div>
+          <span class="reorder-badge">~${item.days_of_stock_left}d left</span>
+        </div>
+      `).join("");
+    } catch (err) {
+      listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load suggestions.</p>';
+    }
+  }
+  loadReorderSuggestions();
 
   // --- Top items ---
   async function loadTopItems() {
@@ -511,6 +616,12 @@
     }
   }
   document.getElementById("loadItemsBtn").addEventListener("click", loadTopItems);
+  document.getElementById("startDate").value = "2030-12-17";
+  document.getElementById("startDate").min = "2026-01-01";
+  document.getElementById("startDate").max = "2030-12-31";
+  document.getElementById("endDate").value = "2030-12-31";
+  document.getElementById("endDate").min = "2026-01-01";
+  document.getElementById("endDate").max = "2030-12-31";
   loadTopItems();
 
   // --- Trend chart ---
