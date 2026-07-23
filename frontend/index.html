@@ -656,7 +656,7 @@
       const response = await fetch(`${API_URL}/inventory`);
       const data = await response.json();
       tableEl.innerHTML = data.map(row => `
-        <div class="list-row"><span>${row.item_name}</span><span class="mono ${row.current_stock < 15 ? 'inv-stock low' : ''}">${row.current_stock} in stock</span></div>
+        <div class="list-row"><span><span class="mono" style="color: var(--ink-soft); margin-right: 8px;">#${row.item_id}</span>${row.item_name}</span><span class="mono ${row.current_stock < 15 ? 'inv-stock low' : ''}">${row.current_stock} in stock</span></div>
       `).join("");
     } catch (err) {
       tableEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load inventory.</p>';
