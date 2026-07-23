@@ -300,7 +300,7 @@ def create_bill(request: BillRequest):
 
 @app.get("/inventory")
 def get_inventory():
-    query = text("SELECT item_id, item_name, price, current_stock FROM inventory ORDER BY item_id")
+    query = text("SELECT item_id, item_name, price, current_stock FROM inventory ORDER BY current_stock ASC")
 
     with engine.connect() as conn:
         result = conn.execute(query).fetchall()
