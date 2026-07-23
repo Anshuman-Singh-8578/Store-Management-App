@@ -1,14 +1,14 @@
 import pandas as pd
 from sqlalchemy import create_engine
+from dotenv import load_dotenv
+import os
 
-# --- Connection details ---
-# Replace 'your_password' with your actual MySQL root password
-DB_USER = "root"
-DB_PASSWORD = "***REMOVED***"
-DB_HOST = "localhost"
-DB_NAME = "demand_predictor"
+load_dotenv()
 
-# Create a connection to MySQL
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
 engine = create_engine(f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}")
 
 # --- Load CSV and push it into MySQL ---
