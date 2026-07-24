@@ -36,6 +36,50 @@
     padding: 0 20px 100px;
   }
 
+  /* --- Loading overlay --- */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 100;
+    transition: opacity 0.3s ease;
+  }
+
+  .loading-overlay.hide {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .loading-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--line);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: center;
+    max-width: 260px;
+  }
+
+  .loading-brand {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--ink);
+  }
+
   .topbar { display: flex; align-items: center; justify-content: space-between; padding: 24px 0 16px; }
   .brand-name { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; margin: 0; }
   .brand-sub { font-size: 12px; color: var(--ink-soft); letter-spacing: 0.04em; text-transform: uppercase; margin: 2px 0 0; }
@@ -273,6 +317,12 @@
 </style>
 </head>
 <body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <p class="loading-brand">General Store</p>
+  <div class="loading-spinner"></div>
+  <p class="loading-text" id="loadingText">Waking up the server — this can take up to a minute on first load.</p>
+</div>
 
 <div class="app-shell">
 
@@ -595,7 +645,6 @@
       listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load suggestions.</p>';
     }
   }
-  loadReorderSuggestions();
 
   // --- Top items ---
   async function loadTopItems() {
@@ -622,7 +671,6 @@
   document.getElementById("endDate").value = "2030-12-31";
   document.getElementById("endDate").min = "2026-01-01";
   document.getElementById("endDate").max = "2030-12-31";
-  loadTopItems();
 
   // --- Trend chart ---
   async function loadTrendChart() {
@@ -647,7 +695,6 @@
       });
     } catch (err) { console.error("Could not load trend chart:", err); }
   }
-  loadTrendChart();
 
   // --- Inventory list (inventory page) ---
   async function loadInventory() {
@@ -662,7 +709,6 @@
       tableEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load inventory.</p>';
     }
   }
-  loadInventory();
 
   document.getElementById("stockUpBtn").addEventListener("click", async () => {
     const successMsg = document.getElementById("stockSuccessMsg");
@@ -881,7 +927,33 @@
 
   document.getElementById("newBillBtn").addEventListener("click", () => showBillingSubview("grid"));
 
-  loadProducts();
+  // --- Initial load: show overlay until everything's ready ---
+  async function initApp() {
+    const overlay = document.getElementById("loadingOverlay");
+    const loadingText = document.getElementById("loadingText");
+
+    const slowTimer = setTimeout(() => {
+      loadingText.textContent = "Still waking up the server — free hosting can be slow to start. Almost there.";
+    }, 8000);
+
+    try {
+      await Promise.all([
+        loadProducts(),
+        loadInventory(),
+        loadTrendChart(),
+        loadReorderSuggestions(),
+        loadTopItems()
+      ]);
+    } catch (err) {
+      console.error("Some initial data failed to load:", err);
+    } finally {
+      clearTimeout(slowTimer);
+      overlay.classList.add("hide");
+      setTimeout(() => { overlay.style.display = "none"; }, 300);
+    }
+  }
+
+  initApp();
 </script>
 
 </body>
