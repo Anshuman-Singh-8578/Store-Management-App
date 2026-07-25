@@ -36,6 +36,173 @@
     padding: 0 20px 100px;
   }
 
+  /* --- Landing page --- */
+  .landing-wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+
+  .landing-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 60px;
+  }
+
+  .landing-brand {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 20px;
+  }
+
+  .landing-login-btn {
+    width: auto;
+    padding: 10px 20px;
+  }
+
+  .hero {
+    text-align: center;
+    max-width: 620px;
+    margin: 0 auto 70px;
+  }
+
+  .hero-eyebrow {
+    font-size: 13px;
+    color: var(--green);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+
+  .hero h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 40px;
+    line-height: 1.2;
+    margin: 0 0 16px;
+  }
+
+  .hero p {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    margin: 0 0 28px;
+  }
+
+  .hero-cta {
+    width: auto;
+    padding: 14px 28px;
+    font-size: 15px;
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin-bottom: 60px;
+  }
+
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px;
+  }
+
+  .feature-illustration {
+    width: 100%;
+    height: 130px;
+    margin-bottom: 18px;
+  }
+
+  .feature-card h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    margin: 0 0 8px;
+  }
+
+  .feature-card p {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .about-section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 40px;
+    margin-bottom: 40px;
+  }
+
+  .about-section h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    margin: 0 0 16px;
+  }
+
+  .about-section p {
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    margin: 0 0 14px;
+  }
+
+  .about-section p:last-child { margin-bottom: 0; }
+
+  .landing-footer {
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 60px;
+  }
+
+  /* --- Login screen --- */
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .login-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .login-brand {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    text-align: center;
+    margin: 0 0 4px;
+  }
+
+  .login-sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0 0 28px;
+  }
+
+  .login-back {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 13px;
+    width: auto;
+    padding: 0 0 20px;
+    font-weight: 500;
+  }
+
   /* --- Loading overlay --- */
   .loading-overlay {
     position: fixed;
@@ -318,6 +485,107 @@
 </head>
 <body>
 
+<!-- ===================== LANDING PAGE ===================== -->
+<div id="landingView">
+  <div class="landing-wrap">
+    <div class="landing-nav">
+      <span class="landing-brand">General Store</span>
+      <button class="landing-login-btn" id="goToLoginBtn">Login</button>
+    </div>
+
+    <div class="hero">
+      <p class="hero-eyebrow">Retail management, simplified</p>
+      <h1>Run your store on real data, not guesswork.</h1>
+      <p>Track exactly what's selling, know when to reorder before you run out, and bill customers with a clean, modern point-of-sale — all in one place, built for small shops.</p>
+      <button class="hero-cta" id="heroLoginBtn">Login &rarr;</button>
+    </div>
+
+    <div class="feature-grid">
+
+      <div class="feature-card">
+        <svg class="feature-illustration" viewBox="0 0 200 120" fill="none">
+          <rect x="30" y="30" width="140" height="70" rx="8" fill="#E4EBE5"/>
+          <rect x="45" y="45" width="60" height="8" rx="4" fill="#2F5D45"/>
+          <rect x="45" y="60" width="90" height="6" rx="3" fill="#9BB5A6"/>
+          <rect x="45" y="72" width="70" height="6" rx="3" fill="#9BB5A6"/>
+          <circle cx="150" cy="80" r="14" fill="#2F5D45"/>
+          <path d="M144 80l4 4 8-8" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h3>Point-of-sale billing</h3>
+        <p>Browse products by category, build a cart with quantity steppers, and check out with an itemized digital receipt — the way a real till works.</p>
+      </div>
+
+      <div class="feature-card">
+        <svg class="feature-illustration" viewBox="0 0 200 120" fill="none">
+          <rect x="35" y="70" width="20" height="30" rx="2" fill="#9BB5A6"/>
+          <rect x="65" y="55" width="20" height="45" rx="2" fill="#2F5D45"/>
+          <rect x="95" y="35" width="20" height="65" rx="2" fill="#9BB5A6"/>
+          <rect x="125" y="50" width="20" height="50" rx="2" fill="#2F5D45"/>
+          <path d="M35 40 Q90 20 150 30" stroke="#2F5D45" stroke-width="2" fill="none" stroke-dasharray="3 4"/>
+        </svg>
+        <h3>Item-level sales history</h3>
+        <p>Search any product to see exactly how it's sold over the last 7 or 14 days, so you know what's actually moving.</p>
+      </div>
+
+      <div class="feature-card">
+        <svg class="feature-illustration" viewBox="0 0 200 120" fill="none">
+          <rect x="55" y="25" width="90" height="70" rx="6" fill="#FAECE7"/>
+          <path d="M75 60l12 12 24-24" stroke="#993C1D" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="100" cy="60" r="45" stroke="#DDD5C4" stroke-width="2" fill="none" stroke-dasharray="4 5"/>
+        </svg>
+        <h3>Smart restock alerts</h3>
+        <p>Automatically flags items that are either selling fast or running low, so you order what you need before you run out.</p>
+      </div>
+
+      <div class="feature-card">
+        <svg class="feature-illustration" viewBox="0 0 200 120" fill="none">
+          <rect x="50" y="30" width="100" height="65" rx="8" fill="#EEEDFE"/>
+          <text x="100" y="55" font-family="monospace" font-size="11" fill="#534AB7" text-anchor="middle">₹1,240</text>
+          <line x1="65" y1="70" x2="135" y2="70" stroke="#534AB7" stroke-width="1.5" stroke-dasharray="2 3"/>
+          <text x="100" y="85" font-family="monospace" font-size="9" fill="#534AB7" text-anchor="middle">10% off applied</text>
+        </svg>
+        <h3>Built-in discounts</h3>
+        <p>Tiered discounts on bill totals, buy-one-get-one style offers, and time-limited seasonal deals, all applied automatically at checkout.</p>
+      </div>
+
+    </div>
+
+    <div class="about-section">
+      <h2>About this project</h2>
+      <p>This is a full-stack retail management system built to solve a real problem: small shop owners often have no easy way to see what's actually selling, when to reorder, or how to run a modern checkout without expensive POS hardware.</p>
+      <p>Under the hood, it combines a SQL-backed inventory and transaction system with atomic billing (so a sale is never left half-recorded), server-side discount logic, and item-level demand analytics — all served through a FastAPI backend and a custom frontend, deployed on real cloud infrastructure.</p>
+      <p>Billing and stock changes are protected behind login, so only authorized accounts can modify data, while sales insights remain viewable for anyone exploring the demo.</p>
+    </div>
+
+    <div class="landing-footer">General Store &middot; Demand-driven inventory &amp; billing</div>
+  </div>
+</div>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="loginView" style="display: none;">
+  <div class="login-wrap">
+    <div class="login-card">
+      <button class="login-back" id="backToLandingBtn">&larr; Back</button>
+      <p class="login-brand">General Store</p>
+      <p class="login-sub">Log in to continue</p>
+
+      <div class="field">
+        <label for="loginUsername">Username</label>
+        <input type="text" id="loginUsername" placeholder="owner">
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" placeholder="••••••••">
+      </div>
+      <button id="loginSubmitBtn">Log in</button>
+      <div class="error" id="loginErrorMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MAIN APP (behind login) ===================== -->
+<div id="appView" style="display: none;">
+
 <div class="loading-overlay" id="loadingOverlay">
   <p class="loading-brand">General Store</p>
   <div class="loading-spinner"></div>
@@ -330,6 +598,10 @@
     <div>
       <p class="brand-name">General Store</p>
       <p class="brand-sub">Store 1 &middot; Demand forecaster</p>
+    </div>
+    <div style="text-align: right;">
+      <p style="font-size: 12px; color: var(--ink-soft); margin: 0 0 4px;">Logged in as <span id="loggedInAs" style="font-weight: 500; color: var(--ink);"></span></p>
+      <button id="logoutBtn" class="ghost" style="width: auto; padding: 6px 14px; font-size: 12px;">Log out</button>
     </div>
   </div>
 
@@ -455,9 +727,95 @@
   <span class="cart-bar-total" id="cartBarTotal">₹0 &nbsp;View cart &rarr;</span>
 </div>
 
+</div><!-- /#appView -->
+
 <script>
   const API_URL = "https://store-management-app-86sz.onrender.com";
   function formatRupees(n) { return "₹" + Math.round(n).toLocaleString("en-IN"); }
+
+  // --- View switching: landing / login / app ---
+  function showView(view) {
+    document.getElementById("landingView").style.display = view === "landing" ? "block" : "none";
+    document.getElementById("loginView").style.display = view === "login" ? "block" : "none";
+    document.getElementById("appView").style.display = view === "app" ? "block" : "none";
+  }
+
+  document.getElementById("goToLoginBtn").addEventListener("click", () => showView("login"));
+  document.getElementById("heroLoginBtn").addEventListener("click", () => showView("login"));
+  document.getElementById("backToLandingBtn").addEventListener("click", () => showView("landing"));
+
+  // --- Login ---
+  let authToken = localStorage.getItem("authToken");
+  let authUsername = localStorage.getItem("authUsername");
+
+  document.getElementById("loginSubmitBtn").addEventListener("click", async () => {
+    const errorMsg = document.getElementById("loginErrorMsg");
+    errorMsg.classList.remove("show");
+
+    const username = document.getElementById("loginUsername").value.trim();
+    const password = document.getElementById("loginPassword").value;
+
+    if (!username || !password) {
+      errorMsg.textContent = "Enter both username and password.";
+      errorMsg.classList.add("show");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        errorMsg.textContent = data.error || "Login failed.";
+        errorMsg.classList.add("show");
+        return;
+      }
+
+      authToken = data.token;
+      authUsername = data.username;
+      localStorage.setItem("authToken", authToken);
+      localStorage.setItem("authUsername", authUsername);
+      enterApp();
+    } catch (err) {
+      errorMsg.textContent = "Could not reach the server.";
+      errorMsg.classList.add("show");
+    }
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    authToken = null;
+    authUsername = null;
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("authUsername");
+    showView("landing");
+  });
+
+  function enterApp() {
+    document.getElementById("loggedInAs").textContent = authUsername;
+    showView("app");
+    initApp();
+  }
+
+  function handleAuthExpired() {
+    authToken = null;
+    authUsername = null;
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("authUsername");
+    showView("login");
+    document.getElementById("loginErrorMsg").textContent = "Your session expired — please log in again.";
+    document.getElementById("loginErrorMsg").classList.add("show");
+  }
+
+  // If we already have a token from a previous session, skip straight into the app
+  if (authToken && authUsername) {
+    enterApp();
+  } else {
+    showView("landing");
+  }
 
   // --- Category icons: simple inline SVGs, matched by keyword ---
   const categories = [
@@ -716,7 +1074,8 @@
     successMsg.classList.remove("show"); errorMsg.classList.remove("show");
     const payload = { item_id: parseInt(document.getElementById("stockItemId").value), quantity_added: parseInt(document.getElementById("stockQty").value) };
     try {
-      const response = await fetch(`${API_URL}/stock-up`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const response = await fetch(`${API_URL}/stock-up`, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` }, body: JSON.stringify(payload) });
+      if (response.status === 401) { handleAuthExpired(); return; }
       const data = await response.json();
       if (data.error) { errorMsg.textContent = data.error; errorMsg.classList.add("show"); }
       else { successMsg.textContent = `Added ${payload.quantity_added} units to item ${payload.item_id}.`; successMsg.classList.add("show"); loadInventory(); loadProducts(); }
@@ -876,9 +1235,10 @@
 
     try {
       const response = await fetch(`${API_URL}/bill`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
         body: JSON.stringify({ items: items.map(l => ({ item_id: l.item_id, quantity: l.quantity })) })
       });
+      if (response.status === 401) { handleAuthExpired(); return; }
       if (!response.ok) throw new Error("Bill failed");
       const data = await response.json();
       showReceipt(data);
@@ -952,8 +1312,6 @@
       setTimeout(() => { overlay.style.display = "none"; }, 300);
     }
   }
-
-  initApp();
 </script>
 
 </body>
