@@ -8,6 +8,52 @@ from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 import os
 from datetime import date
+from fastapi import Header, HTTPException
+
+def require_auth(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = authorization.replace("Bearer ", "")
+    user = verify_token(token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Session expired, please log in again")
+    return userf
+
+import hashlib
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+
+SECRET_KEY = os.getenv("APP_SECRET_KEY", "change-this-in-production")
+serializer = URLSafeTimedSerializer(SECRET_KEY)
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# --- Staff accounts (username: hashed password) ---
+# Change these two passwords, then run hash_password("yourpassword") once to get the real hash values.
+STAFF_ACCOUNTS = {
+    "owner": hash_password("changeme1"),
+    "cashier": hash_password("changeme2"),
+}
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/login")
+def login(request: LoginRequest):
+    expected_hash = STAFF_ACCOUNTS.get(request.username)
+    if expected_hash is None or hash_password(request.password) != expected_hash:
+        return {"success": False, "error": "Invalid username or password"}
+
+    token = serializer.dumps({"username": request.username})
+    return {"success": True, "token": token, "username": request.username}
+
+def verify_token(token: str):
+    try:
+        data = serializer.loads(token, max_age=8 * 60 * 60)  # 8 hour expiry
+        return data
+    except (BadSignature, SignatureExpired):
+        return None
 
 # --- Discount rules ---
 
@@ -123,7 +169,7 @@ class StockUpdateRequest(BaseModel):
     quantity_added: int
 
 @app.post("/stock-up")
-def stock_up(request: StockUpdateRequest):
+def stock_up(request: StockUpdateRequest, user=Depends(require_auth)):
     query = text("""
         UPDATE inventory
         SET current_stock = current_stock + :quantity
@@ -204,7 +250,7 @@ def item_sales_history(item_id: int, days: int = 14):
     return [{"date": str(row.sale_day), "units_sold": row.units_sold} for row in result]
 
 @app.post("/bill")
-def create_bill(request: BillRequest):
+def create_bill(request: BillRequest, user=Depends(require_auth)):
     receipt_items = []
     today = date.today()
 
