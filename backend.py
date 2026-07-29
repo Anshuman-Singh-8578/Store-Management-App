@@ -44,12 +44,6 @@ serializer = URLSafeTimedSerializer(SECRET_KEY)
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-# Change these two passwords before real use.
-STAFF_ACCOUNTS = {
-    "owner": hash_password("changeme1"),
-    "cashier": hash_password("changeme2"),
-}
-
 def verify_token(token: str):
     try:
         data = serializer.loads(token, max_age=8 * 60 * 60)  # 8 hour expiry
@@ -70,10 +64,46 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class SignupRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+@app.post("/signup")
+def signup(request: SignupRequest):
+    if len(request.password) < 6:
+        return {"success": False, "error": "Password must be at least 6 characters"}
+
+    with engine.begin() as conn:
+        existing = conn.execute(
+            text("SELECT user_id FROM users WHERE username = :u OR email = :e"),
+            {"u": request.username, "e": request.email}
+        ).fetchone()
+
+        if existing:
+            return {"success": False, "error": "Username or email already taken"}
+
+        conn.execute(
+            text("INSERT INTO users (username, email, password_hash) VALUES (:u, :e, :p)"),
+            {"u": request.username, "e": request.email, "p": hash_password(request.password)}
+        )
+
+    token = serializer.dumps({"username": request.username})
+    return {"success": True, "token": token, "username": request.username}
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 @app.post("/login")
 def login(request: LoginRequest):
-    expected_hash = STAFF_ACCOUNTS.get(request.username)
-    if expected_hash is None or hash_password(request.password) != expected_hash:
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT password_hash FROM users WHERE username = :u"),
+            {"u": request.username}
+        ).fetchone()
+
+    if row is None or hash_password(request.password) != row.password_hash:
         return {"success": False, "error": "Invalid username or password"}
 
     token = serializer.dumps({"username": request.username})
