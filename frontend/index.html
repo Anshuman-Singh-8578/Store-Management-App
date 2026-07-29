@@ -567,18 +567,27 @@
     <div class="login-card">
       <button class="login-back" id="backToLandingBtn">&larr; Back</button>
       <p class="login-brand">General Store</p>
-      <p class="login-sub">Log in to continue</p>
+      <p class="login-sub" id="authModeSub">Log in to continue</p>
 
       <div class="field">
-        <label for="loginUsername">Username</label>
-        <input type="text" id="loginUsername" placeholder="owner">
+        <label for="authUsername">Username</label>
+        <input type="text" id="authUsername" placeholder="yourusername">
+      </div>
+      <div class="field" id="emailField" style="display: none;">
+        <label for="authEmail">Email</label>
+        <input type="text" id="authEmail" placeholder="you@example.com">
       </div>
       <div class="field">
-        <label for="loginPassword">Password</label>
-        <input type="password" id="loginPassword" placeholder="••••••••">
+        <label for="authPassword">Password</label>
+        <input type="password" id="authPassword" placeholder="••••••••">
       </div>
-      <button id="loginSubmitBtn">Log in</button>
+      <button id="authSubmitBtn">Log in</button>
       <div class="error" id="loginErrorMsg"></div>
+
+      <p style="text-align: center; font-size: 13px; color: var(--ink-soft); margin-top: 20px;">
+        <span id="authToggleText">Don't have an account?</span>
+        <button id="authToggleBtn" style="width: auto; background: none; color: var(--green); font-weight: 500; padding: 0; display: inline; font-size: 13px;">Sign up</button>
+      </p>
     </div>
   </div>
 </div>
@@ -740,37 +749,56 @@
     document.getElementById("appView").style.display = view === "app" ? "block" : "none";
   }
 
-  document.getElementById("goToLoginBtn").addEventListener("click", () => showView("login"));
-  document.getElementById("heroLoginBtn").addEventListener("click", () => showView("login"));
+  document.getElementById("goToLoginBtn").addEventListener("click", () => { setAuthMode("login"); showView("login"); });
+  document.getElementById("heroLoginBtn").addEventListener("click", () => { setAuthMode("login"); showView("login"); });
   document.getElementById("backToLandingBtn").addEventListener("click", () => showView("landing"));
 
-  // --- Login ---
+  // --- Auth: login / signup ---
   let authToken = localStorage.getItem("authToken");
   let authUsername = localStorage.getItem("authUsername");
+  let authMode = "login";
 
-  document.getElementById("loginSubmitBtn").addEventListener("click", async () => {
+  function setAuthMode(mode) {
+    authMode = mode;
+    document.getElementById("loginErrorMsg").classList.remove("show");
+    document.getElementById("emailField").style.display = mode === "signup" ? "block" : "none";
+    document.getElementById("authModeSub").textContent = mode === "signup" ? "Create an account" : "Log in to continue";
+    document.getElementById("authSubmitBtn").textContent = mode === "signup" ? "Sign up" : "Log in";
+    document.getElementById("authToggleText").textContent = mode === "signup" ? "Already have an account?" : "Don't have an account?";
+    document.getElementById("authToggleBtn").textContent = mode === "signup" ? "Log in" : "Sign up";
+  }
+
+  document.getElementById("authToggleBtn").addEventListener("click", () => {
+    setAuthMode(authMode === "login" ? "signup" : "login");
+  });
+
+  document.getElementById("authSubmitBtn").addEventListener("click", async () => {
     const errorMsg = document.getElementById("loginErrorMsg");
     errorMsg.classList.remove("show");
 
-    const username = document.getElementById("loginUsername").value.trim();
-    const password = document.getElementById("loginPassword").value;
+    const username = document.getElementById("authUsername").value.trim();
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value;
 
-    if (!username || !password) {
-      errorMsg.textContent = "Enter both username and password.";
+    if (!username || !password || (authMode === "signup" && !email)) {
+      errorMsg.textContent = "Please fill in all fields.";
       errorMsg.classList.add("show");
       return;
     }
 
+    const endpoint = authMode === "signup" ? "/signup" : "/login";
+    const payload = authMode === "signup" ? { username, email, password } : { username, password };
+
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
 
       if (!data.success) {
-        errorMsg.textContent = data.error || "Login failed.";
+        errorMsg.textContent = data.error || "Something went wrong.";
         errorMsg.classList.add("show");
         return;
       }
