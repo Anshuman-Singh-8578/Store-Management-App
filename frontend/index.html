@@ -346,6 +346,19 @@
   .error.show, .success-msg.show { display: block; }
 
   .list-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+
+  .inv-list-row { border-bottom: 1px solid var(--line); padding: 10px 0; }
+  .inv-list-row:last-child { border-bottom: none; }
+  .inv-row-top { display: flex; justify-content: space-between; align-items: center; }
+  .inv-row-actions { display: flex; gap: 4px; margin-top: 6px; }
+  .inv-row-actions button { width: auto; padding: 4px 10px; font-size: 11.5px; background: var(--paper); color: var(--ink-soft); border: 1px solid var(--line); }
+  .inv-row-actions button:hover { background: var(--card); color: var(--ink); border-color: var(--neon); }
+  .inv-row-actions .delete-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .inv-edit-form { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .inv-edit-form input { padding: 8px; font-size: 13px; }
+  .inv-edit-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .inv-edit-actions button { width: auto; padding: 6px 14px; font-size: 12px; }
   .list-row:last-child { border-bottom: none; }
   .mono { font-family: 'JetBrains Mono', monospace; }
   .inv-stock.low { color: var(--red); font-weight: 500; }
@@ -723,13 +736,9 @@
     </div>
 
     <div class="card">
-      <p class="eyebrow">Top-selling items</p>
-      <div class="row">
-        <div class="field"><label for="startDate">From</label><input type="date" id="startDate"></div>
-        <div class="field"><label for="endDate">To</label><input type="date" id="endDate"></div>
-      </div>
-      <button id="loadItemsBtn" class="secondary">Show top items</button>
-      <div id="topItemsList" style="margin-top: 16px;"></div>
+      <p class="eyebrow">Last 14 days</p>
+      <p class="card-title">Top-selling items</p>
+      <div id="topItemsList" style="margin-top: 4px;"></div>
     </div>
   </div>
 
@@ -773,15 +782,29 @@
   <!-- ===================== INVENTORY ===================== -->
   <div class="page" id="page-inventory">
     <div class="card">
-      <p class="eyebrow">Current stock</p>
+      <p class="eyebrow">Your catalog</p>
       <p class="card-title">Inventory levels</p>
       <div id="inventoryTable"></div>
     </div>
+
+    <div class="card">
+      <p class="eyebrow">Catalog management</p>
+      <p class="card-title">Add a new product</p>
+      <div class="row">
+        <div class="field"><label for="newItemName">Item name</label><input type="text" id="newItemName" placeholder="e.g. Amul Milk 500ml"></div>
+        <div class="field"><label for="newItemPrice">Price (\u20b9)</label><input type="number" id="newItemPrice" min="1" value="50"></div>
+      </div>
+      <div class="field"><label for="newItemStock">Starting stock</label><input type="number" id="newItemStock" min="0" value="0"></div>
+      <button id="addProductBtn" class="secondary">Add product</button>
+      <div class="success-msg" id="addProductSuccessMsg"></div>
+      <div class="error" id="addProductErrorMsg"></div>
+    </div>
+
     <div class="card">
       <p class="eyebrow">Restock</p>
       <p class="card-title">Add to stock</p>
       <div class="row">
-        <div class="field"><label for="stockItemId">Item ID</label><input type="number" id="stockItemId" min="1" max="50" value="1"></div>
+        <div class="field"><label for="stockItemId">Item ID</label><input type="number" id="stockItemId" min="1" value="1"></div>
         <div class="field"><label for="stockQty">Quantity received</label><input type="number" id="stockQty" min="1" value="10"></div>
       </div>
       <button id="stockUpBtn" class="secondary">Add to stock</button>
@@ -802,6 +825,17 @@
 <script>
   const API_URL = "https://store-management-app-86sz.onrender.com";
   function formatRupees(n) { return "₹" + Math.round(n).toLocaleString("en-IN"); }
+
+  // --- Shared fetch wrapper: attaches auth token, handles expired sessions ---
+  async function authFetch(url, options = {}) {
+    const headers = { ...(options.headers || {}), "Authorization": `Bearer ${authToken}` };
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401) {
+      handleAuthExpired();
+      throw new Error("Session expired");
+    }
+    return response;
+  }
 
   // --- View switching: landing / login / app ---
   function showView(view) {
@@ -1007,7 +1041,7 @@
     if (q.length < 2) { itemLookupResults.classList.remove("show"); return; }
     lookupSearchTimeout = setTimeout(async () => {
       try {
-        const response = await fetch(`${API_URL}/inventory/search?q=${encodeURIComponent(q)}`);
+        const response = await authFetch(`${API_URL}/inventory/search?q=${encodeURIComponent(q)}`);
         const data = await response.json();
         itemLookupResults.innerHTML = data.length === 0
           ? '<div class="search-result-item"><span>No matching items</span></div>'
@@ -1046,7 +1080,7 @@
     document.getElementById("itemLookupTitle").textContent = `${selectedLookupItem.name} — last ${days} days`;
 
     try {
-      const response = await fetch(`${API_URL}/item-sales-history?item_id=${selectedLookupItem.id}&days=${days}`);
+      const response = await authFetch(`${API_URL}/item-sales-history?item_id=${selectedLookupItem.id}&days=${days}`);
       const data = await response.json();
 
       const totalUnits = data.reduce((sum, d) => sum + d.units_sold, 0);
@@ -1083,7 +1117,7 @@
   async function loadReorderSuggestions() {
     const listEl = document.getElementById("reorderList");
     try {
-      const response = await fetch(`${API_URL}/reorder-suggestions?days=14`);
+      const response = await authFetch(`${API_URL}/reorder-suggestions?days=14`);
       const data = await response.json();
       const flagged = data.filter(item => item.should_reorder);
 
@@ -1109,13 +1143,9 @@
   // --- Top items ---
   async function loadTopItems() {
     const listEl = document.getElementById("topItemsList");
-    const startDate = document.getElementById("startDate").value;
-    const endDate = document.getElementById("endDate").value;
-    if (!startDate || !endDate) return;
-    const lookbackDays = Math.round((new Date(endDate) - new Date(startDate)) / 86400000);
     listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Loading...</p>';
     try {
-      const response = await fetch(`${API_URL}/top-items?store_id=1&as_of_date=${endDate}&lookback_days=${lookbackDays}&top_n=5`);
+      const response = await authFetch(`${API_URL}/top-items?days=14&top_n=5`);
       const data = await response.json();
       listEl.innerHTML = data.map(row => `
         <div class="list-row"><span>${row.item_name}</span><span class="mono" style="color: var(--green);">${Math.round(row.total_sales).toLocaleString()} units</span></div>
@@ -1124,18 +1154,11 @@
       listEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load top items.</p>';
     }
   }
-  document.getElementById("loadItemsBtn").addEventListener("click", loadTopItems);
-  document.getElementById("startDate").value = "2030-12-17";
-  document.getElementById("startDate").min = "2026-01-01";
-  document.getElementById("startDate").max = "2030-12-31";
-  document.getElementById("endDate").value = "2030-12-31";
-  document.getElementById("endDate").min = "2026-01-01";
-  document.getElementById("endDate").max = "2030-12-31";
 
   // --- Trend chart ---
   async function loadTrendChart() {
     try {
-      const response = await fetch(`${API_URL}/sales-history?store_id=1&days=30`);
+      const response = await authFetch(`${API_URL}/sales-history?days=30`);
       const data = await response.json();
       const ctx = document.getElementById("trendChart").getContext("2d");
       new Chart(ctx, {
@@ -1157,18 +1180,137 @@
   }
 
   // --- Inventory list (inventory page) ---
+  let inventoryData = [];
+  let editingItemId = null;
+
   async function loadInventory() {
     const tableEl = document.getElementById("inventoryTable");
     try {
-      const response = await fetch(`${API_URL}/inventory`);
-      const data = await response.json();
-      tableEl.innerHTML = data.map(row => `
-        <div class="list-row"><span><span class="mono" style="color: var(--ink-soft); margin-right: 8px;">#${row.item_id}</span>${row.item_name}</span><span class="mono ${row.current_stock < 15 ? 'inv-stock low' : ''}">${row.current_stock} in stock</span></div>
-      `).join("");
+      const response = await authFetch(`${API_URL}/inventory`);
+      inventoryData = await response.json();
+      renderInventoryTable();
     } catch (err) {
       tableEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">Could not load inventory.</p>';
     }
   }
+
+  function renderInventoryTable() {
+    const tableEl = document.getElementById("inventoryTable");
+
+    if (inventoryData.length === 0) {
+      tableEl.innerHTML = '<p style="color: var(--ink-soft); font-size: 13px;">No products yet. Add your first one below.</p>';
+      return;
+    }
+
+    tableEl.innerHTML = inventoryData.map(row => {
+      if (editingItemId === row.item_id) {
+        return `
+          <div class="inv-list-row">
+            <div class="inv-edit-form">
+              <input type="text" id="editName-${row.item_id}" value="${row.item_name}">
+              <input type="number" id="editPrice-${row.item_id}" value="${row.price}">
+              <input type="number" id="editStock-${row.item_id}" value="${row.current_stock}">
+            </div>
+            <div class="inv-edit-actions">
+              <button data-save="${row.item_id}">Save</button>
+              <button data-cancel-edit="${row.item_id}" class="ghost">Cancel</button>
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div class="inv-list-row">
+          <div class="inv-row-top">
+            <span><span class="mono" style="color: var(--ink-soft); margin-right: 8px;">#${row.item_id}</span>${row.item_name} &middot; ${formatRupees(row.price)}</span>
+            <span class="mono ${row.current_stock < 15 ? 'inv-stock low' : ''}">${row.current_stock} in stock</span>
+          </div>
+          <div class="inv-row-actions">
+            <button data-edit="${row.item_id}">Edit</button>
+            <button data-delete="${row.item_id}" class="delete-btn">Delete</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  document.getElementById("inventoryTable").addEventListener("click", async (e) => {
+    const editId = e.target.dataset.edit;
+    const cancelId = e.target.dataset.cancelEdit;
+    const saveId = e.target.dataset.save;
+    const deleteId = e.target.dataset.delete;
+
+    if (editId) { editingItemId = parseInt(editId); renderInventoryTable(); }
+    if (cancelId) { editingItemId = null; renderInventoryTable(); }
+
+    if (saveId) {
+      const itemId = parseInt(saveId);
+      const name = document.getElementById(`editName-${itemId}`).value.trim();
+      const price = parseInt(document.getElementById(`editPrice-${itemId}`).value);
+      const stock = parseInt(document.getElementById(`editStock-${itemId}`).value);
+
+      try {
+        const response = await authFetch(`${API_URL}/inventory/${itemId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ item_name: name, price, current_stock: stock })
+        });
+        if (!response.ok) throw new Error("Update failed");
+        editingItemId = null;
+        loadInventory();
+        loadProducts();
+      } catch (err) {
+        alert("Could not save changes.");
+      }
+    }
+
+    if (deleteId) {
+      const itemId = parseInt(deleteId);
+      if (!confirm("Delete this product? This can't be undone.")) return;
+      try {
+        const response = await authFetch(`${API_URL}/inventory/${itemId}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("Delete failed");
+        loadInventory();
+        loadProducts();
+      } catch (err) {
+        alert("Could not delete item.");
+      }
+    }
+  });
+
+  // --- Add new product ---
+  document.getElementById("addProductBtn").addEventListener("click", async () => {
+    const successMsg = document.getElementById("addProductSuccessMsg");
+    const errorMsg = document.getElementById("addProductErrorMsg");
+    successMsg.classList.remove("show");
+    errorMsg.classList.remove("show");
+
+    const name = document.getElementById("newItemName").value.trim();
+    const price = parseInt(document.getElementById("newItemPrice").value);
+    const stock = parseInt(document.getElementById("newItemStock").value) || 0;
+
+    if (!name || !price) {
+      errorMsg.textContent = "Enter a name and price.";
+      errorMsg.classList.add("show");
+      return;
+    }
+
+    try {
+      const response = await authFetch(`${API_URL}/inventory/add`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_name: name, price, current_stock: stock })
+      });
+      if (!response.ok) throw new Error("Add failed");
+      successMsg.textContent = `Added "${name}" to your catalog.`;
+      successMsg.classList.add("show");
+      document.getElementById("newItemName").value = "";
+      document.getElementById("newItemPrice").value = "50";
+      document.getElementById("newItemStock").value = "0";
+      loadInventory();
+      loadProducts();
+    } catch (err) {
+      errorMsg.textContent = "Could not add product.";
+      errorMsg.classList.add("show");
+    }
+  });
 
   document.getElementById("stockUpBtn").addEventListener("click", async () => {
     const successMsg = document.getElementById("stockSuccessMsg");
@@ -1190,7 +1332,7 @@
 
   async function loadProducts() {
     try {
-      const response = await fetch(`${API_URL}/inventory`);
+      const response = await authFetch(`${API_URL}/inventory`);
       allProducts = await response.json();
       renderCategoryTabs();
       applyProductFilters();
