@@ -2,8 +2,6 @@ from fastapi import FastAPI, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
-import joblib
-import pandas as pd
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 import os
@@ -24,9 +22,6 @@ engine = create_engine(
     f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?use_pure=true"
 )
 
-# --- Load the trained model once, when the server starts ---
-model = joblib.load("model.pkl")
-
 # --- Create the app (must happen before any @app.* route is defined) ---
 app = FastAPI()
 
@@ -46,8 +41,7 @@ def hash_password(password: str) -> str:
 
 def verify_token(token: str):
     try:
-        data = serializer.loads(token, max_age=8 * 60 * 60)  # 8 hour expiry
-        return data
+        return serializer.loads(token, max_age=8 * 60 * 60)  # 8 hour expiry
     except (BadSignature, SignatureExpired):
         return None
 
@@ -60,9 +54,13 @@ def require_auth(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Session expired, please log in again")
     return user
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+def get_current_user_id(username: str, conn) -> int:
+    """Look up the numeric user_id for the logged-in username. Every data query
+    filters by this, so one business can never see or modify another's data."""
+    row = conn.execute(text("SELECT user_id FROM users WHERE username = :u"), {"u": username}).fetchone()
+    if row is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return row.user_id
 
 class SignupRequest(BaseModel):
     username: str
@@ -79,7 +77,6 @@ def signup(request: SignupRequest):
             text("SELECT user_id FROM users WHERE username = :u OR email = :e"),
             {"u": request.username, "e": request.email}
         ).fetchone()
-
         if existing:
             return {"success": False, "error": "Username or email already taken"}
 
@@ -109,7 +106,7 @@ def login(request: LoginRequest):
     token = serializer.dumps({"username": request.username})
     return {"success": True, "token": token, "username": request.username}
 
-# --- Discount rules ---
+# --- Discount rules (currently global defaults for every business) ---
 TIER_DISCOUNTS = [
     (5000, 20),
     (1000, 10),
@@ -122,71 +119,99 @@ def get_tier_discount_percent(subtotal):
             return percent
     return 0
 
-BOGO_RULES = [
-    {"trigger_item_id": 1, "trigger_qty": 2, "free_item_id": 25, "free_qty": 1, "label": "Buy 2 Amul Milk, get 1 Cadbury Dairy Milk free"}
-]
+BOGO_RULES = []  # Set per-business item IDs no longer apply globally; left empty by default.
 
 SEASONAL_DISCOUNTS = [
     {"name": "Chocolate Day", "keywords": ["chocolate", "dairy milk"], "percent": 15,
      "start": date(2026, 2, 9), "end": date(2026, 2, 9)}
 ]
 
-# --- Prediction ---
-class PredictionRequest(BaseModel):
-    day_of_week: int
-    promo: int
-    sales_lag_1: float
-    sales_lag_7: float
-
-@app.post("/predict")
-def predict(request: PredictionRequest):
-    input_data = pd.DataFrame([{
-        "DayOfWeek": request.day_of_week,
-        "Promo": request.promo,
-        "sales_lag_1": request.sales_lag_1,
-        "sales_lag_7": request.sales_lag_7
-    }])
-    prediction = model.predict(input_data)[0]
-    return {"predicted_sales": round(float(prediction), 2)}
-
-# --- Top items ---
-@app.get("/top-items")
-def top_items(store_id: int, as_of_date: str, lookback_days: int = 14, top_n: int = 5):
-    query = text("""
-        SELECT s.item, i.item_name, SUM(s.sales) AS total_sales
-        FROM sales s
-        JOIN inventory i ON s.item = i.item_id
-        WHERE s.store = :store_id
-          AND s.date BETWEEN DATE_SUB(:as_of_date, INTERVAL :lookback_days DAY) AND :as_of_date
-        GROUP BY s.item, i.item_name
-        ORDER BY total_sales DESC
-        LIMIT :top_n
-    """)
-    params = {"store_id": store_id, "as_of_date": as_of_date, "lookback_days": lookback_days, "top_n": top_n}
+# --- Inventory: list, search (scoped to the logged-in business) ---
+@app.get("/inventory")
+def get_inventory(user=Depends(require_auth)):
     with engine.connect() as conn:
-        result = conn.execute(query, params).fetchall()
-    return [{"item": row.item, "item_name": row.item_name, "total_sales": float(row.total_sales)} for row in result]
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("SELECT item_id, item_name, price, current_stock FROM inventory WHERE owner_user_id = :uid ORDER BY current_stock ASC"),
+            {"uid": user_id}
+        ).fetchall()
+    return [{"item_id": r.item_id, "item_name": r.item_name, "price": r.price, "current_stock": r.current_stock} for r in result]
 
-# --- Stock up (protected) ---
+@app.get("/inventory/search")
+def search_inventory(q: str, user=Depends(require_auth)):
+    with engine.connect() as conn:
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("""
+                SELECT item_id, item_name, price, current_stock FROM inventory
+                WHERE owner_user_id = :uid AND item_name LIKE :search_term
+                ORDER BY item_name LIMIT 10
+            """),
+            {"uid": user_id, "search_term": f"%{q}%"}
+        ).fetchall()
+    return [{"item_id": r.item_id, "item_name": r.item_name, "price": r.price, "current_stock": r.current_stock} for r in result]
+
+# --- Product management: add / edit / delete (scoped to the logged-in business) ---
+class ProductRequest(BaseModel):
+    item_name: str
+    price: int
+    current_stock: int = 0
+
+@app.post("/inventory/add")
+def add_product(request: ProductRequest, user=Depends(require_auth)):
+    with engine.begin() as conn:
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("INSERT INTO inventory (item_name, price, current_stock, owner_user_id) VALUES (:name, :price, :stock, :uid)"),
+            {"name": request.item_name, "price": request.price, "stock": request.current_stock, "uid": user_id}
+        )
+    return {"success": True, "item_id": result.lastrowid}
+
+@app.put("/inventory/{item_id}")
+def update_product(item_id: int, request: ProductRequest, user=Depends(require_auth)):
+    with engine.begin() as conn:
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("""
+                UPDATE inventory SET item_name = :name, price = :price, current_stock = :stock
+                WHERE item_id = :iid AND owner_user_id = :uid
+            """),
+            {"name": request.item_name, "price": request.price, "stock": request.current_stock, "iid": item_id, "uid": user_id}
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Item not found or not yours")
+    return {"success": True}
+
+@app.delete("/inventory/{item_id}")
+def delete_product(item_id: int, user=Depends(require_auth)):
+    with engine.begin() as conn:
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("DELETE FROM inventory WHERE item_id = :iid AND owner_user_id = :uid"),
+            {"iid": item_id, "uid": user_id}
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Item not found or not yours")
+    return {"success": True}
+
+# --- Stock up (scoped) ---
 class StockUpdateRequest(BaseModel):
     item_id: int
     quantity_added: int
 
 @app.post("/stock-up")
 def stock_up(request: StockUpdateRequest, user=Depends(require_auth)):
-    query = text("""
-        UPDATE inventory
-        SET current_stock = current_stock + :quantity
-        WHERE item_id = :item_id
-    """)
-    with engine.connect() as conn:
-        result = conn.execute(query, {"quantity": request.quantity_added, "item_id": request.item_id})
-        conn.commit()
+    with engine.begin() as conn:
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("UPDATE inventory SET current_stock = current_stock + :quantity WHERE item_id = :item_id AND owner_user_id = :uid"),
+            {"quantity": request.quantity_added, "item_id": request.item_id, "uid": user_id}
+        )
         if result.rowcount == 0:
-            return {"error": "Item not found"}
+            return {"error": "Item not found or not yours"}
     return {"item_id": request.item_id, "message": "Stock updated"}
 
-# --- Billing ---
+# --- Billing (scoped: can only bill your own items) ---
 class BillItem(BaseModel):
     item_id: int
     quantity: int
@@ -200,17 +225,18 @@ def create_bill(request: BillRequest, user=Depends(require_auth)):
     today = date.today()
 
     with engine.begin() as conn:
+        user_id = get_current_user_id(user["username"], conn)
         result = conn.execute(text("SELECT COALESCE(MAX(bill_id), 0) + 1 AS next_id FROM transactions"))
         bill_id = result.scalar()
 
         for item in request.items:
             row = conn.execute(
-                text("SELECT item_name, price, current_stock FROM inventory WHERE item_id = :item_id"),
-                {"item_id": item.item_id}
+                text("SELECT item_name, price, current_stock FROM inventory WHERE item_id = :item_id AND owner_user_id = :uid"),
+                {"item_id": item.item_id, "uid": user_id}
             ).fetchone()
 
             if row is None:
-                raise Exception(f"Item {item.item_id} does not exist")
+                raise Exception(f"Item {item.item_id} does not exist in your store")
             if row.current_stock < item.quantity:
                 raise Exception(f"Not enough stock for item {item.item_id}")
 
@@ -250,8 +276,8 @@ def create_bill(request: BillRequest, user=Depends(require_auth)):
 
             if free_units_earned > 0:
                 free_row = conn.execute(
-                    text("SELECT item_name, price, current_stock FROM inventory WHERE item_id = :item_id"),
-                    {"item_id": rule["free_item_id"]}
+                    text("SELECT item_name, price, current_stock FROM inventory WHERE item_id = :item_id AND owner_user_id = :uid"),
+                    {"item_id": rule["free_item_id"], "uid": user_id}
                 ).fetchone()
 
                 if free_row and free_row.current_stock >= free_units_earned:
@@ -284,20 +310,24 @@ def create_bill(request: BillRequest, user=Depends(require_auth)):
         "grand_total": grand_total
     }
 
-# --- Reorder suggestions ---
+# --- Reorder suggestions (scoped) ---
 @app.get("/reorder-suggestions")
-def reorder_suggestions(days: int = 14):
-    query = text("""
-        SELECT i.item_id, i.item_name, i.current_stock,
-               COALESCE(SUM(t.quantity), 0) AS units_sold_recently
-        FROM inventory i
-        LEFT JOIN transactions t
-          ON i.item_id = t.item_id AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
-        GROUP BY i.item_id, i.item_name, i.current_stock
-        ORDER BY units_sold_recently DESC
-    """)
+def reorder_suggestions(days: int = 14, user=Depends(require_auth)):
     with engine.connect() as conn:
-        result = conn.execute(query, {"days": days}).fetchall()
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("""
+                SELECT i.item_id, i.item_name, i.current_stock,
+                       COALESCE(SUM(t.quantity), 0) AS units_sold_recently
+                FROM inventory i
+                LEFT JOIN transactions t
+                  ON i.item_id = t.item_id AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                WHERE i.owner_user_id = :uid
+                GROUP BY i.item_id, i.item_name, i.current_stock
+                ORDER BY units_sold_recently DESC
+            """),
+            {"days": days, "uid": user_id}
+        ).fetchall()
 
     LOW_STOCK_THRESHOLD = 15
     suggestions = []
@@ -319,61 +349,60 @@ def reorder_suggestions(days: int = 14):
         })
     return suggestions
 
-# --- Item sales history ---
+# --- Item sales history (scoped) ---
 @app.get("/item-sales-history")
-def item_sales_history(item_id: int, days: int = 14):
-    query = text("""
-        SELECT DATE(sale_date) AS sale_day, SUM(quantity) AS units_sold
-        FROM transactions
-        WHERE item_id = :item_id
-          AND sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
-        GROUP BY DATE(sale_date)
-        ORDER BY sale_day
-    """)
+def item_sales_history(item_id: int, days: int = 14, user=Depends(require_auth)):
     with engine.connect() as conn:
-        result = conn.execute(query, {"item_id": item_id, "days": days}).fetchall()
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("""
+                SELECT DATE(t.sale_date) AS sale_day, SUM(t.quantity) AS units_sold
+                FROM transactions t
+                JOIN inventory i ON t.item_id = i.item_id
+                WHERE t.item_id = :item_id AND i.owner_user_id = :uid
+                  AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                GROUP BY DATE(t.sale_date)
+                ORDER BY sale_day
+            """),
+            {"item_id": item_id, "uid": user_id, "days": days}
+        ).fetchall()
     return [{"date": str(row.sale_day), "units_sold": row.units_sold} for row in result]
 
-# --- Inventory ---
-@app.get("/inventory")
-def get_inventory():
-    query = text("SELECT item_id, item_name, price, current_stock FROM inventory ORDER BY current_stock ASC")
+# --- Top-selling items: now computed from real transactions, scoped to the business ---
+@app.get("/top-items")
+def top_items(days: int = 14, top_n: int = 5, user=Depends(require_auth)):
     with engine.connect() as conn:
-        result = conn.execute(query).fetchall()
-    return [
-        {"item_id": row.item_id, "item_name": row.item_name, "price": row.price, "current_stock": row.current_stock}
-        for row in result
-    ]
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("""
+                SELECT i.item_id AS item, i.item_name, SUM(t.quantity) AS total_sales
+                FROM transactions t
+                JOIN inventory i ON t.item_id = i.item_id
+                WHERE i.owner_user_id = :uid
+                  AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                GROUP BY i.item_id, i.item_name
+                ORDER BY total_sales DESC
+                LIMIT :top_n
+            """),
+            {"uid": user_id, "days": days, "top_n": top_n}
+        ).fetchall()
+    return [{"item": r.item, "item_name": r.item_name, "total_sales": float(r.total_sales)} for r in result]
 
-@app.get("/inventory/search")
-def search_inventory(q: str):
-    query = text("""
-        SELECT item_id, item_name, price, current_stock
-        FROM inventory
-        WHERE item_name LIKE :search_term
-        ORDER BY item_name
-        LIMIT 10
-    """)
-    with engine.connect() as conn:
-        result = conn.execute(query, {"search_term": f"%{q}%"}).fetchall()
-    return [
-        {"item_id": row.item_id, "item_name": row.item_name, "price": row.price, "current_stock": row.current_stock}
-        for row in result
-    ]
-
-# --- Sales history (trend chart) ---
+# --- Daily sales trend: now computed from real transactions, scoped to the business ---
 @app.get("/sales-history")
-def sales_history(store_id: int = 1, days: int = 30):
-    query = text("""
-        SELECT date, SUM(sales) AS total_sales
-        FROM sales
-        WHERE store = :store_id
-        GROUP BY date
-        ORDER BY date DESC
-        LIMIT :days
-    """)
+def sales_history(days: int = 30, user=Depends(require_auth)):
     with engine.connect() as conn:
-        result = conn.execute(query, {"store_id": store_id, "days": days}).fetchall()
-    rows = [{"date": str(row.date), "sales": row.total_sales} for row in result]
-    rows.reverse()
-    return rows
+        user_id = get_current_user_id(user["username"], conn)
+        result = conn.execute(
+            text("""
+                SELECT DATE(t.sale_date) AS sale_day, SUM(t.quantity) AS total_units
+                FROM transactions t
+                JOIN inventory i ON t.item_id = i.item_id
+                WHERE i.owner_user_id = :uid
+                  AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                GROUP BY DATE(t.sale_date)
+                ORDER BY sale_day
+            """),
+            {"uid": user_id, "days": days}
+        ).fetchall()
+    return [{"date": str(r.sale_day), "sales": r.total_units} for r in result]
