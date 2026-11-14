@@ -11,11 +11,11 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 load_dotenv()
 
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("SUPA_DB_USER")
+DB_PASSWORD = os.getenv("SUPA_DB_PASSWORD")
+DB_HOST = os.getenv("SUPA_DB_HOST")
+DB_PORT = os.getenv("SUPA_DB_PORT")
+DB_NAME = os.getenv("SUPA_DB_NAME")
 
 engine = create_engine(
     f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -310,7 +310,7 @@ def reorder_suggestions(days: int = 14, user=Depends(require_auth)):
                        COALESCE(SUM(t.quantity), 0) AS units_sold_recently
                 FROM inventory i
                 LEFT JOIN transactions t
-                  ON i.item_id = t.item_id AND t.sale_date >= NOW() - INTERVAL ':days days'
+                  ON i.item_id = t.item_id AND t.sale_date >= NOW() - INTERVAL '1 day' * :days
                 WHERE i.owner_user_id = :uid
                 GROUP BY i.item_id, i.item_name, i.current_stock
                 ORDER BY units_sold_recently DESC
@@ -348,7 +348,7 @@ def item_sales_history(item_id: int, days: int = 14, user=Depends(require_auth))
                 FROM transactions t
                 JOIN inventory i ON t.item_id = i.item_id
                 WHERE t.item_id = :item_id AND i.owner_user_id = :uid
-                  AND t.sale_date >= NOW() - INTERVAL ':days days'
+                  AND t.sale_date >= NOW() - INTERVAL '1 day' * :days
                 GROUP BY DATE(t.sale_date)
                 ORDER BY sale_day
             """),
@@ -366,7 +366,7 @@ def top_items(days: int = 14, top_n: int = 5, user=Depends(require_auth)):
                 FROM transactions t
                 JOIN inventory i ON t.item_id = i.item_id
                 WHERE i.owner_user_id = :uid
-                  AND t.sale_date >= NOW() - INTERVAL ':days days'
+                  AND t.sale_date >= NOW() - INTERVAL '1 day' * :days
                 GROUP BY i.item_id, i.item_name
                 ORDER BY total_sales DESC
                 LIMIT :top_n
@@ -385,7 +385,7 @@ def sales_history(days: int = 30, user=Depends(require_auth)):
                 FROM transactions t
                 JOIN inventory i ON t.item_id = i.item_id
                 WHERE i.owner_user_id = :uid
-                  AND t.sale_date >= NOW() - INTERVAL ':days days'
+                  AND t.sale_date >= NOW() - INTERVAL '1 day' * :days
                 GROUP BY DATE(t.sale_date)
                 ORDER BY sale_day
             """),
