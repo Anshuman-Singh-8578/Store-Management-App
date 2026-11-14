@@ -792,7 +792,7 @@
       <p class="card-title">Add a new product</p>
       <div class="row">
         <div class="field"><label for="newItemName">Item name</label><input type="text" id="newItemName" placeholder="e.g. Amul Milk 500ml"></div>
-        <div class="field"><label for="newItemPrice">Price (\u20b9)</label><input type="number" id="newItemPrice" min="1" value="50"></div>
+        <div class="field"><label for="newItemPrice">Price (₹)</label><input type="number" id="newItemPrice" min="1" value="50"></div>
       </div>
       <div class="field"><label for="newItemStock">Starting stock</label><input type="number" id="newItemStock" min="0" value="0"></div>
       <button id="addProductBtn" class="secondary">Add product</button>
@@ -927,6 +927,19 @@
     authUsername = null;
     localStorage.removeItem("authToken");
     localStorage.removeItem("authUsername");
+
+    // Clear all in-memory state so the next login starts completely fresh
+    if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+    if (lookupChartInstance) { lookupChartInstance.destroy(); lookupChartInstance = null; }
+    allProducts = [];
+    inventoryData = [];
+    cart = {};
+    editingItemId = null;
+    selectedLookupItem = null;
+    document.getElementById("itemLookupEmpty").style.display = "block";
+    document.getElementById("itemLookupChartWrap").style.display = "none";
+    document.getElementById("itemLookupSearch").value = "";
+
     showView("landing");
   });
 
@@ -1156,12 +1169,15 @@
   }
 
   // --- Trend chart ---
+  let trendChartInstance = null;
+
   async function loadTrendChart() {
     try {
       const response = await authFetch(`${API_URL}/sales-history?days=30`);
       const data = await response.json();
       const ctx = document.getElementById("trendChart").getContext("2d");
-      new Chart(ctx, {
+      if (trendChartInstance) trendChartInstance.destroy();
+      trendChartInstance = new Chart(ctx, {
         type: "line",
         data: {
           labels: data.map(row => row.date.slice(5)),

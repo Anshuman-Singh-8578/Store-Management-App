@@ -9,20 +9,18 @@ import hashlib
 from datetime import date
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
-# --- Environment / database setup ---
 load_dotenv()
 
-DB_USER = os.getenv("AIVEN_DB_USER")
-DB_PASSWORD = os.getenv("AIVEN_DB_PASSWORD")
-DB_HOST = os.getenv("AIVEN_DB_HOST")
-DB_PORT = os.getenv("AIVEN_DB_PORT")
-DB_NAME = os.getenv("AIVEN_DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
 
 engine = create_engine(
-    f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?use_pure=true"
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
-# --- Create the app (must happen before any @app.* route is defined) ---
 app = FastAPI()
 
 app.add_middleware(
@@ -32,7 +30,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Auth setup ---
 SECRET_KEY = os.getenv("APP_SECRET_KEY", "change-this-in-production")
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
@@ -41,7 +38,7 @@ def hash_password(password: str) -> str:
 
 def verify_token(token: str):
     try:
-        return serializer.loads(token, max_age=8 * 60 * 60)  # 8 hour expiry
+        return serializer.loads(token, max_age=8 * 60 * 60)
     except (BadSignature, SignatureExpired):
         return None
 
@@ -55,8 +52,6 @@ def require_auth(authorization: str = Header(None)):
     return user
 
 def get_current_user_id(username: str, conn) -> int:
-    """Look up the numeric user_id for the logged-in username. Every data query
-    filters by this, so one business can never see or modify another's data."""
     row = conn.execute(text("SELECT user_id FROM users WHERE username = :u"), {"u": username}).fetchone()
     if row is None:
         raise HTTPException(status_code=401, detail="User not found")
@@ -106,7 +101,6 @@ def login(request: LoginRequest):
     token = serializer.dumps({"username": request.username})
     return {"success": True, "token": token, "username": request.username}
 
-# --- Discount rules (currently global defaults for every business) ---
 TIER_DISCOUNTS = [
     (5000, 20),
     (1000, 10),
@@ -119,14 +113,13 @@ def get_tier_discount_percent(subtotal):
             return percent
     return 0
 
-BOGO_RULES = []  # Set per-business item IDs no longer apply globally; left empty by default.
+BOGO_RULES = []
 
 SEASONAL_DISCOUNTS = [
     {"name": "Chocolate Day", "keywords": ["chocolate", "dairy milk"], "percent": 15,
      "start": date(2026, 2, 9), "end": date(2026, 2, 9)}
 ]
 
-# --- Inventory: list, search (scoped to the logged-in business) ---
 @app.get("/inventory")
 def get_inventory(user=Depends(require_auth)):
     with engine.connect() as conn:
@@ -144,14 +137,13 @@ def search_inventory(q: str, user=Depends(require_auth)):
         result = conn.execute(
             text("""
                 SELECT item_id, item_name, price, current_stock FROM inventory
-                WHERE owner_user_id = :uid AND item_name LIKE :search_term
+                WHERE owner_user_id = :uid AND item_name ILIKE :search_term
                 ORDER BY item_name LIMIT 10
             """),
             {"uid": user_id, "search_term": f"%{q}%"}
         ).fetchall()
     return [{"item_id": r.item_id, "item_name": r.item_name, "price": r.price, "current_stock": r.current_stock} for r in result]
 
-# --- Product management: add / edit / delete (scoped to the logged-in business) ---
 class ProductRequest(BaseModel):
     item_name: str
     price: int
@@ -162,10 +154,10 @@ def add_product(request: ProductRequest, user=Depends(require_auth)):
     with engine.begin() as conn:
         user_id = get_current_user_id(user["username"], conn)
         result = conn.execute(
-            text("INSERT INTO inventory (item_name, price, current_stock, owner_user_id) VALUES (:name, :price, :stock, :uid)"),
+            text("INSERT INTO inventory (item_name, price, current_stock, owner_user_id) VALUES (:name, :price, :stock, :uid) RETURNING item_id"),
             {"name": request.item_name, "price": request.price, "stock": request.current_stock, "uid": user_id}
         )
-    return {"success": True, "item_id": result.lastrowid}
+    return {"success": True, "item_id": result.fetchone().item_id}
 
 @app.put("/inventory/{item_id}")
 def update_product(item_id: int, request: ProductRequest, user=Depends(require_auth)):
@@ -194,7 +186,6 @@ def delete_product(item_id: int, user=Depends(require_auth)):
             raise HTTPException(status_code=404, detail="Item not found or not yours")
     return {"success": True}
 
-# --- Stock up (scoped) ---
 class StockUpdateRequest(BaseModel):
     item_id: int
     quantity_added: int
@@ -211,7 +202,6 @@ def stock_up(request: StockUpdateRequest, user=Depends(require_auth)):
             return {"error": "Item not found or not yours"}
     return {"item_id": request.item_id, "message": "Stock updated"}
 
-# --- Billing (scoped: can only bill your own items) ---
 class BillItem(BaseModel):
     item_id: int
     quantity: int
@@ -310,7 +300,6 @@ def create_bill(request: BillRequest, user=Depends(require_auth)):
         "grand_total": grand_total
     }
 
-# --- Reorder suggestions (scoped) ---
 @app.get("/reorder-suggestions")
 def reorder_suggestions(days: int = 14, user=Depends(require_auth)):
     with engine.connect() as conn:
@@ -321,7 +310,7 @@ def reorder_suggestions(days: int = 14, user=Depends(require_auth)):
                        COALESCE(SUM(t.quantity), 0) AS units_sold_recently
                 FROM inventory i
                 LEFT JOIN transactions t
-                  ON i.item_id = t.item_id AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                  ON i.item_id = t.item_id AND t.sale_date >= NOW() - INTERVAL ':days days'
                 WHERE i.owner_user_id = :uid
                 GROUP BY i.item_id, i.item_name, i.current_stock
                 ORDER BY units_sold_recently DESC
@@ -349,7 +338,6 @@ def reorder_suggestions(days: int = 14, user=Depends(require_auth)):
         })
     return suggestions
 
-# --- Item sales history (scoped) ---
 @app.get("/item-sales-history")
 def item_sales_history(item_id: int, days: int = 14, user=Depends(require_auth)):
     with engine.connect() as conn:
@@ -360,7 +348,7 @@ def item_sales_history(item_id: int, days: int = 14, user=Depends(require_auth))
                 FROM transactions t
                 JOIN inventory i ON t.item_id = i.item_id
                 WHERE t.item_id = :item_id AND i.owner_user_id = :uid
-                  AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                  AND t.sale_date >= NOW() - INTERVAL ':days days'
                 GROUP BY DATE(t.sale_date)
                 ORDER BY sale_day
             """),
@@ -368,7 +356,6 @@ def item_sales_history(item_id: int, days: int = 14, user=Depends(require_auth))
         ).fetchall()
     return [{"date": str(row.sale_day), "units_sold": row.units_sold} for row in result]
 
-# --- Top-selling items: now computed from real transactions, scoped to the business ---
 @app.get("/top-items")
 def top_items(days: int = 14, top_n: int = 5, user=Depends(require_auth)):
     with engine.connect() as conn:
@@ -379,7 +366,7 @@ def top_items(days: int = 14, top_n: int = 5, user=Depends(require_auth)):
                 FROM transactions t
                 JOIN inventory i ON t.item_id = i.item_id
                 WHERE i.owner_user_id = :uid
-                  AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                  AND t.sale_date >= NOW() - INTERVAL ':days days'
                 GROUP BY i.item_id, i.item_name
                 ORDER BY total_sales DESC
                 LIMIT :top_n
@@ -388,7 +375,6 @@ def top_items(days: int = 14, top_n: int = 5, user=Depends(require_auth)):
         ).fetchall()
     return [{"item": r.item, "item_name": r.item_name, "total_sales": float(r.total_sales)} for r in result]
 
-# --- Daily sales trend: now computed from real transactions, scoped to the business ---
 @app.get("/sales-history")
 def sales_history(days: int = 30, user=Depends(require_auth)):
     with engine.connect() as conn:
@@ -399,7 +385,7 @@ def sales_history(days: int = 30, user=Depends(require_auth)):
                 FROM transactions t
                 JOIN inventory i ON t.item_id = i.item_id
                 WHERE i.owner_user_id = :uid
-                  AND t.sale_date >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                  AND t.sale_date >= NOW() - INTERVAL ':days days'
                 GROUP BY DATE(t.sale_date)
                 ORDER BY sale_day
             """),
