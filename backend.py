@@ -11,11 +11,11 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 load_dotenv()
 
-DB_USER = os.getenv("SUPA_DB_USER")
-DB_PASSWORD = os.getenv("SUPA_DB_PASSWORD")
-DB_HOST = os.getenv("SUPA_DB_HOST")
-DB_PORT = os.getenv("SUPA_DB_PORT")
-DB_NAME = os.getenv("SUPA_DB_NAME")
+DB_USER = os.getenv("supa_DB_USER")
+DB_PASSWORD = os.getenv("supa_DB_PASSWORD")
+DB_HOST = os.getenv("supa_DB_HOST")
+DB_PORT = os.getenv("supa_DB_PORT")
+DB_NAME = os.getenv("supa_DB_NAME")
 
 engine = create_engine(
     f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
