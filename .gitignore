@@ -4,4 +4,6 @@ __pycache__/
 data/
 model.pkl
 replacements.txt
-assign_demo_items.py
+*.pyc
+*.pyo
+setup_demo.py
