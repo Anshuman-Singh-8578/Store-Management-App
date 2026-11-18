@@ -85,13 +85,13 @@ View current stock levels, edit or remove catalogue items, add new products and 
 |---|---|
 | Frontend | HTML, CSS, JavaScript |
 | Backend | Python, FastAPI |
-| Database | MySQL |
+| Database | PostgreSQL (Supabase) |
 | ORM / database access | SQLAlchemy |
 | Data processing and machine learning | pandas, scikit-learn, serialized `model.pkl` |
 | Charts | Chart.js |
 | Frontend hosting | Netlify |
 | Backend hosting | Render |
-| Database hosting | Aiven |
+| Database hosting | Supabase |
 
 ## Architecture
 
@@ -99,14 +99,14 @@ View current stock levels, edit or remove catalogue items, add new products and 
 flowchart LR
     U[Store user] --> F[Frontend<br/>HTML, CSS, JavaScript]
     F -->|HTTPS / REST API| B[Backend<br/>Python + FastAPI]
-    B --> D[(MySQL database)]
+    B --> D[(PostgreSQL database)]
     B --> M[Sales prediction model<br/>model.pkl]
     F --- N[Netlify hosting]
     B --- R[Render hosting]
-    D --- A[Aiven database hosting]
+    D --- A[Supabase database hosting]
 ```
 
-The frontend communicates with the FastAPI backend through API requests. The backend handles application logic, database operations, billing and analytics. MySQL stores the application data, while the backend loads the serialized model for sales prediction.
+The frontend communicates with the FastAPI backend through API requests. The backend handles application logic, database operations, billing and analytics. PostgreSQL stores the application data, while the backend loads the serialized model for sales prediction.
 
 ## Important implementation details
 
@@ -144,9 +144,9 @@ The repository includes a serialized machine-learning artifact named `model.pkl`
 
 ## Database & deployment notes
 
-ShelfSense uses MySQL for persistent application data. The current hosted deployment uses an Aiven-hosted MySQL database.
+ShelfSense uses PostgreSQL for persistent application data. The current hosted deployment uses a Supabase-hosted PostgreSQL database.
 
-A separate MySQL database can be configured for a separate deployment. However, **running the complete application locally is not currently supported by this project**, so this README does not provide local startup commands.
+A separate PostgreSQL database can be configured for a separate deployment. However, **running the complete application locally is not currently supported by this project**, so this README does not provide local startup commands.
 
 Database credentials and other secrets should be supplied through environment configuration in the deployment environment. Do not commit passwords, API keys or database connection strings to the repository.
 
